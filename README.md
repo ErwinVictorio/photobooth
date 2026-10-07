@@ -1,4 +1,4 @@
-﻿# Good Moments Photobooth
+# Good Moments Photobooth
 
 A React/Vite photobooth for an iPad kiosk, based on the botanical storyboard in `Docs/`. Capture, compose, and keep photos on the current device. No backend, accounts, or photo uploads.
 
@@ -31,7 +31,7 @@ $env:ELECTRON_RUN_AS_NODE = '1'
 
 ## Operator controls
 
-Hold the **Good Moments logo for three seconds** (or focus it and hold Enter/Space). Choose Event setup, Local gallery, or Booth settings. Enter guest mode hides operator navigation again. This is a convenience gate, not authentication.
+Click **Operator** at the top right of the welcome screen, or click the **Good Moments logo** at the top left. Choose Event setup, Local gallery, or Booth settings. The three-second logo hold still works. Enter guest mode returns to the welcome screen. This is a convenience gate, not authentication.
 
 Event setup saves the event name/date, optional local logo, default template/frame/layout, template availability, captions, quality, and countdown. It validates text fit and template assets before saving. Settings cover front/rear preference, mirroring, event title, sound, fullscreen, storage totals, confirmed event/all-photo deletion, and offline readiness. Camera changes use the last saved settings.
 

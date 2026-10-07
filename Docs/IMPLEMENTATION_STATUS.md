@@ -55,6 +55,8 @@ Keep the existing React/Vite installation and use native Canvas, IndexedDB, CSS,
 
 ## Remaining work / deliberate deferrals
 
+- Template design plan execution started October 7: [Phase A review draft](template-mockups/index.html) contains five full-size SVG/PNG designs and six tablet UI studies. Original labeled illustrations substitute for sample photographs in this first draft. Runtime template integration and real-photo validation remain pending; see [review notes](template-mockups/README.md).
+
 - Real iPad Safari and iOS Home Screen/offline relaunch checks; real camera hardware, Share Sheet/AirDrop, and long event soak testing.
 - Hosting configuration is ready, but no Vercel account/project was provided and no public deployment was made.
 - Printer model, paper dimensions, and AirPrint validation. The generic browser print action is available.

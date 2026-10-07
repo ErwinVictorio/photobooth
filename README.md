@@ -33,15 +33,16 @@ $env:ELECTRON_RUN_AS_NODE = '1'
 
 Hold the **Good Moments logo for three seconds** (or focus it and hold Enter/Space). Choose Event setup, Local gallery, or Booth settings. Enter guest mode hides operator navigation again. This is a convenience gate, not authentication.
 
-Event setup saves the event name/date, optional local logo, default frame/layout, quality, and countdown. Settings cover front/rear preference, mirroring, event title, sound, fullscreen, storage totals, confirmed event/all-photo deletion, and offline readiness. Camera changes use the last saved settings.
+Event setup saves the event name/date, optional local logo, default template/frame/layout, template availability, captions, quality, and countdown. It validates text fit and template assets before saving. Settings cover front/rear preference, mirroring, event title, sound, fullscreen, storage totals, confirmed event/all-photo deletion, and offline readiness. Camera changes use the last saved settings.
 
 ## Guest flow
 
-Welcome → layout → frame → camera/countdown → preview/retake → final photo.
+Welcome → layout → template (or legacy frame) → camera/countdown → preview/retake → final photo.
 
 - Single, two-photo, three-photo strip, and four-photo grid layouts.
-- Six locally drawn frame styles, with consistent frame artwork in samples and final JPEGs.
-- Front camera preview and output use the same mirror setting. Captures use the photo slot's aspect ratio.
+- Five curated strip templates with category filters and larger previews: Classic Wedding, Minimal Clean, Film Retro, Vintage Polaroid and Colorful Fun. One shared composer renders sample and captured-photo output, including rotated Polaroid mounts.
+- Single, double and grid retain six locally drawn frame styles.
+- Front camera preview and output use the same mirror setting. New originals keep the full camera field of view at bounded resolution; final composition applies the selected slot crop.
 - Full-session retake; camera tracks stop when leaving capture or hiding the app.
 - Final JPEG, thumbnail, and original captures are committed together to IndexedDB only after **Use these photos**.
 - Storage failure preserves the final image in the current screen and offers download plus retry.
@@ -61,3 +62,5 @@ New versions wait until the old app's tabs/windows close before activating, so a
 ## Release scope
 
 See `Docs/IMPLEMENTATION_STATUS.md` for verification and remaining release gates. Actual iPad camera, sharing, Home Screen installation, and printer checks remain necessary. Filters/stickers, custom frame PNG imports, bulk ZIP export, PIN authentication, cloud/QR sharing, and later business features are deferred. The MVP uses native browser APIs and CSS rather than adding the optional UI/database/PWA wrappers from the recommended stack.
+
+For template implementation details, font licensing and acceptance checks, see [the template report](Docs/TEMPLATE_IMPLEMENTATION_REPORT.md). After `npm run build`, run `npm run test:browser` for the base regression suite and `npm run test:templates` for rendering, picker, validation, legacy gallery and all-five-template offline checks.

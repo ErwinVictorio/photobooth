@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { canvasBlob, drawCover, photoRects } from '../services/images'
 import { getLayout } from '../data/booth'
+import { getTemplate } from '../data/templates'
+import TemplateSample from '../components/TemplateSample'
 import Icon from '../components/Icon'
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const cameraError = (error) => ({ NotAllowedError: 'Camera permission is needed. Allow camera access in your browser settings, then try again.', NotFoundError: 'No camera was found. Connect a camera and try again.', NotReadableError: 'The camera is busy. Close other apps using it and try again.', OverconstrainedError: 'This camera is unavailable. Try switching cameras.' }[error.name] || error.message || 'The camera could not start. Please try again.')
 
-export default function Camera({ settings, layout: layoutId, onComplete, onBack }) {
+export default function Camera({ settings, layout: layoutId, templateId, onComplete, onBack }) {
   const video = useRef(null), stream = useRef(null), generation = useRef(0), busyRef = useRef(false), audio = useRef(null)
   const [facing, setFacing] = useState(settings.facing)
   const [retry, setRetry] = useState(0)
@@ -14,7 +16,8 @@ export default function Camera({ settings, layout: layoutId, onComplete, onBack 
   const [countdown, setCountdown] = useState(null), [shot, setShot] = useState(0), [flash, setFlash] = useState(false)
   const [captured, setCaptured] = useState([])
   const layout = getLayout(layoutId)
-  const r = photoRects(layout.id, layout.width, layout.height)[0]
+  const template = getTemplate(templateId)
+  const r = (template?.slots || photoRects(layout.id, layout.width, layout.height))[Math.min(shot, layout.count - 1)]
   const ratio = r.width / r.height
 
   useEffect(() => {
@@ -73,7 +76,7 @@ export default function Camera({ settings, layout: layoutId, onComplete, onBack 
         setCountdown(null); setFlash(true); beep(980)
         const canvas = document.createElement('canvas')
         canvas.width = Math.min(source.videoWidth, settings.quality === 'high' ? 1600 : 1000)
-        canvas.height = Math.round(canvas.width / ratio)
+        canvas.height = Math.round(canvas.width * source.videoHeight / source.videoWidth)
         const ctx = canvas.getContext('2d')
         if (facing === 'user' && settings.mirror) { ctx.translate(canvas.width, 0); ctx.scale(-1, 1) }
         drawCover(ctx, source, 0, 0, canvas.width, canvas.height)
@@ -95,15 +98,17 @@ export default function Camera({ settings, layout: layoutId, onComplete, onBack 
   }
   return <section className="camera-page page-enter">
     <div className="screen-heading"><span className="eyebrow">YOUR MOMENT IS HERE</span><h1>{busy ? countdown ? 'Get ready!' : 'Looking lovely!' : 'A little smile goes a long way.'}</h1><p>{busy ? `Photo ${shot + 1} of ${layout.count}` : `${layout.count} ${layout.count === 1 ? 'photo' : 'photos'} · ${settings.countdown} seconds to strike a pose`}</p></div>
-    <div className={`camera-stage ${flash ? 'flash' : ''}`} style={{ aspectRatio: ratio, width: `min(100%, ${52 * ratio}svh)` }}>
+    <p className="sample-note">{template?.name || layout.name} · Framing for photo {shot + 1}</p>
+    <div className={`camera-stage ${flash ? 'flash' : ''}`} style={{ aspectRatio: ratio, width: `min(100%, ${48 * ratio}svh)`, maxHeight: '48svh' }}>
       <video ref={video} autoPlay playsInline muted style={{ transform: facing === 'user' && settings.mirror ? 'scaleX(-1)' : undefined }} aria-label="Live camera preview"/>
       {!ready && <div className="camera-message"><Icon name="camera" size={42}/><p>{error || 'Opening your camera…'}</p>{error && <button className="button" onClick={() => restart()}>Try again</button>}</div>}
       {countdown && <div className="countdown" aria-live="assertive" key={`${shot}-${countdown}`}>{countdown}</div>}
       {ready && <span className="live-badge"><i/> LIVE CAMERA</span>}
     </div>
     {error && ready && <p className="notice error" role="alert">{error}</p>}
+    {template && <div className="capture-template-progress"><TemplateSample templateId={template.id} settings={settings} photos={captured}/><p className="small-note">Unfilled windows show sample illustrations only.</p></div>}
     <div className="shot-dots" aria-label={`${captured.length} of ${layout.count} photos captured`}>{Array.from({ length: layout.count }, (_, i) => <span className={i < captured.length ? 'done' : i === shot && busy ? 'current' : ''} key={i}>{i < captured.length ? <Icon name="check" size={16}/> : i + 1}</span>)}</div>
-    <div className="camera-controls"><button className="text-button" disabled={busy} onClick={onBack}><Icon name="back"/> Frames</button><button className="shutter" aria-label="Take photos" disabled={!ready || busy} onClick={capture}><Icon name="camera" size={30}/></button><button className="text-button" disabled={busy} onClick={() => restart(true)}><Icon name="refresh"/> Switch</button></div>
+    <div className="camera-controls"><button className="text-button" disabled={busy} onClick={onBack}><Icon name="back"/> Templates</button><button className="shutter" aria-label="Take photos" disabled={!ready || busy} onClick={capture}><Icon name="camera" size={30}/></button><button className="text-button" disabled={busy} onClick={() => restart(true)}><Icon name="refresh"/> Switch</button></div>
     <p className="small-note">{busy ? 'Stay right here. We’ll take care of the next shot.' : 'Tap the camera when everyone is ready.'}</p>
   </section>
 }

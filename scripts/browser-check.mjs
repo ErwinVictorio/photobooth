@@ -59,10 +59,11 @@ async function operator() {
 }
 async function screenshot(name) { await sleep(400); const image = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: true }); await writeFile(join(output, `${name}.png`), Buffer.from(image.data, 'base64')) }
 async function check(label, fn) { await fn(); checks.push(label); console.log(`PASS ${label}`) }
+async function enterCamera() { if (await has('Choose a template') && await evaluate('!!document.querySelector(".template-page")')) await click('Continue →'); else await click('Let’s take photos') }
 async function chooseAndCapture(layoutName) {
   await click('Start photo')
   if (layoutName) await evaluate(`Array.from(document.querySelectorAll('.choice-card')).find(b => b.querySelector('h2').textContent === ${text(layoutName)}).click()`)
-  await click('Choose a frame'); await click('Let’s take photos')
+  await click('Choose a template'); await enterCamera()
   await click('Take photos'); await waitText('That’s a keeper.')
   await eventually(() => evaluate(`document.querySelector('.photo-display img')?.naturalWidth > 0`), 'composed image')
 }
@@ -84,8 +85,8 @@ try {
     await send('Emulation.setDeviceMetricsOverride', { width: 820, height: 1180, deviceScaleFactor: 1, mobile: false })
   })
   await check('Three-shot camera, preview, JPEG and committed local originals', async () => {
-    await click('Start photo'); await screenshot('03-layouts'); await click('Choose a frame'); await screenshot('04-frames')
-    await click('Let’s take photos'); await eventually(() => evaluate('!!document.querySelector("video")?.videoWidth'), 'live camera')
+    await click('Start photo'); await screenshot('03-layouts'); await click('Choose a template'); await screenshot('04-frames')
+    await enterCamera(); await eventually(() => evaluate('!!document.querySelector("video")?.videoWidth'), 'live camera')
     await screenshot('05-camera'); await click('Take photos'); await waitText('That’s a keeper.')
     await eventually(() => evaluate('document.querySelector(".photo-display img")?.naturalWidth === 900'), '900px strip preview')
     assert.equal(await evaluate('document.querySelector(".photo-display img").naturalHeight'), 2100)
@@ -134,7 +135,7 @@ try {
     for (const [name, width, height] of [['Two photos',1800,1200], ['Four photos',1500,1800]]) {
       await click('Start photo')
       await evaluate(`Array.from(document.querySelectorAll('.choice-card')).find(b => b.querySelector('h2').textContent === ${text(name)}).click()`)
-      await click('Choose a frame'); await click('Let’s take photos')
+      await click('Choose a template'); await enterCamera()
       await eventually(() => evaluate('!!document.querySelector("video")?.srcObject?.active'), 'camera ready')
       await evaluate('window.__oldStream=document.querySelector("video").srcObject')
       await click('Switch')
@@ -153,10 +154,10 @@ try {
   })
   await check('Camera permission denial is recoverable without fake capture', async () => {
     await evaluate(`navigator.mediaDevices.getUserMedia=async()=>{throw new DOMException('Denied','NotAllowedError')}`)
-    await click('Start photo'); await click('Choose a frame'); await click('Let’s take photos'); await waitText('Camera permission is needed.')
+    await click('Start photo'); await click('Choose a template'); await enterCamera(); await waitText('Camera permission is needed.')
     assert.equal(await evaluate('document.querySelector(".shutter").disabled'),true)
     await screenshot('11-camera-permission')
-    await click('Frames'); await click('Return to welcome')
+    await click('Templates'); await click('Return to welcome')
   })
   await check('Confirmed gallery deletion removes only selected session', async () => {
     await operator(); await click('Local gallery'); await click('All photos'); await waitText('3 memories')

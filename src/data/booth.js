@@ -1,3 +1,5 @@
+import { templates } from './templates'
+
 export const layouts = [
   { id: 'single', name: 'Single', detail: 'One lovely moment', count: 1, cols: 1, rows: 1, width: 1200, height: 1500 },
   { id: 'double', name: 'Two photos', detail: 'Better together', count: 2, cols: 2, rows: 1, width: 1800, height: 1200 },
@@ -18,11 +20,14 @@ export const getLayout = (id) => layouts.find((item) => item.id === id) || layou
 export const getFrame = (id) => frames.find((item) => item.id === id) || frames[2]
 export const localDate = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 export const formatDate = (date) => date ? new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }) : ''
-export const defaults = { eventName: 'Good people. Beautiful memories.', eventDate: localDate(), layout: 'strip', frame: 'botanical', countdown: 3, quality: 'high', facing: 'user', mirror: true, sound: false, showTitle: true, logo: '' }
+export const defaults = { eventName: 'Good people. Beautiful memories.', eventDate: localDate(), layout: 'strip', frame: 'botanical', templateId: 'minimal-clean', enabledTemplates: templates.map(t => t.id), footerCaption: 'Captured together', mainMessage: 'GOOD VIBES', photoCaptions: ['Good friends', 'Same lovely chaos', 'Best memories'], countdown: 3, quality: 'high', facing: 'user', mirror: true, sound: false, showTitle: true, logo: '' }
 
 export function readSettings() {
   try {
     const value = JSON.parse(localStorage.getItem('photobooth.settings')) || {}
-    return { ...defaults, ...value, layout: getLayout(value.layout).id, frame: getFrame(value.frame).id, countdown: [3, 5, 10].includes(value.countdown) ? value.countdown : 3 }
+    const enabledTemplates = Array.isArray(value.enabledTemplates) ? value.enabledTemplates.filter(id => templates.some(t => t.id === id)) : defaults.enabledTemplates
+    if (!enabledTemplates.length) enabledTemplates.push('minimal-clean')
+    const preferred = value.templateId || defaults.templateId
+    return { ...defaults, ...value, enabledTemplates, templateId: enabledTemplates.includes(preferred) ? preferred : enabledTemplates[0], layout: getLayout(value.layout).id, frame: getFrame(value.frame).id, countdown: [3, 5, 10].includes(value.countdown) ? value.countdown : 3 }
   } catch { return { ...defaults } }
 }

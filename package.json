@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:browser": "node scripts/browser-check.mjs"
+    "test:browser": "node scripts/browser-check.mjs",
+    "test:templates": "node scripts/build-renderer-fixture.mjs && node scripts/template-check.mjs"
   },
   "dependencies": {
     "react": "^19.2.8",

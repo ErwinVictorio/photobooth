@@ -1,5 +1,7 @@
 # Phase A template design review
 
+Historical design studies: the runtime template release is now implemented. See [the implementation report](../TEMPLATE_IMPLEMENTATION_REPORT.md) for current behavior, verification and remaining device checks. The scope statements below describe the initial mockup deliverable.
+
 Open [index.html](index.html) in a browser to compare all five strips and six UI studies. Each strip has a full-size **900 x 2100 SVG and PNG**. UI images are **820 x 1180 portrait** and **1180 x 820 landscape**.
 
 ## Delivered

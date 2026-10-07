@@ -1,30 +1,8 @@
 import { useEffect, useState } from 'react'
-import { formatDate, frames, layouts } from '../data/booth'
-import { readLogo } from '../services/images'
 import { clearSessions, listSessions } from '../services/db'
-import { FrameSample } from '../components/BoothArt'
 import Icon from '../components/Icon'
 import Dialog from '../components/Dialog'
-
-export function EventSetup({ settings, onSave }) {
-  const [form, setForm] = useState(settings), [error, setError] = useState(''), [loadingLogo, setLoadingLogo] = useState(false)
-  const change = (key, value) => setForm((old) => ({ ...old, [key]: value }))
-  async function upload(event) {
-    const file = event.target.files[0]
-    if (!file) return
-    setLoadingLogo(true)
-    try { change('logo', await readLogo(file)); setError('') } catch (e) { setError(e.message) } finally { setLoadingLogo(false) }
-  }
-  return <section className="operator-page page-enter"><div className="screen-heading"><span className="eyebrow">MAKE IT YOURS</span><h1>Set the occasion.</h1><p>A few little details for a day to remember.</p></div><div className="setup-grid"><form className="form-card" onSubmit={(event) => { event.preventDefault(); onSave(form) }}>
-    <label>Event name<input required maxLength={80} value={form.eventName} onChange={(e) => change('eventName', e.target.value)} placeholder="Erwin & Maria’s Wedding"/></label>
-    <label>Event date<input required type="date" value={form.eventDate} onChange={(e) => change('eventDate', e.target.value)}/></label>
-    <div className="form-row"><label>Default layout<select value={form.layout} onChange={(e) => change('layout', e.target.value)}>{layouts.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label><label>Default frame<select value={form.frame} onChange={(e) => change('frame', e.target.value)}>{frames.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}</select></label></div>
-    <div className="form-row"><label>Countdown<select value={form.countdown} onChange={(e) => change('countdown', Number(e.target.value))}>{[3,5,10].map((n) => <option value={n} key={n}>{n} seconds</option>)}</select></label><label>Photo quality<select value={form.quality} onChange={(e) => change('quality', e.target.value)}><option value="high">High</option><option value="standard">Standard</option></select></label></div>
-    <label>Event logo <span className="muted">(optional)</span><input type="file" accept="image/*" disabled={loadingLogo} onChange={upload}/></label>
-    {form.logo && <div className="logo-upload"><img src={form.logo} alt="Event logo"/><button type="button" className="text-button" onClick={() => change('logo', '')}>Remove logo</button></div>}
-    {error && <p role="alert" className="notice error">{error}</p>}<button disabled={loadingLogo} className="button" type="submit">Save & start booth <Icon name="arrow"/></button>
-  </form><aside className="setup-preview"><FrameSample layout={form.layout} frame={form.frame} large/><h2>{form.eventName}</h2><p>{formatDate(form.eventDate)}</p><span className="small-note">Your details appear on every finished photo.</span></aside></div></section>
-}
+export { default as EventSetup } from './EventSetup'
 
 export function Settings({ settings, onSave, eventKey, onCameraTest, onFullscreen }) {
   const [form, setForm] = useState(settings), [rows, setRows] = useState(null), [error, setError] = useState(''), [confirm, setConfirm] = useState(null), [working, setWorking] = useState(false), [online, setOnline] = useState(navigator.onLine)

@@ -1,6 +1,6 @@
 # Photobooth Template Design Plan
 
-Status: execution started October 7, 2026. Phase A initial review mockups are ready; application integration has not started.
+Status: five-template first-release software implemented October 7, 2026. Automated browser checks completed; real-iPad/print acceptance and conditional Phase E remain open. See [implementation report](TEMPLATE_IMPLEMENTATION_REPORT.md).
 Reference: the five-template design board supplied in chat on October 7, 2026.
 
 ## Execution progress
@@ -9,7 +9,9 @@ Reference: the five-template design board supplied in chat on October 7, 2026.
 - Editable SVG sources and rendered PNGs are available in `Docs/template-mockups/`; reproduction and verification notes are in [the mockup README](template-mockups/README.md).
 - The first draft uses the same three original, labeled sample illustrations in all designs. This deliberately substitutes for sample photographs pending real-photo crop review; it does not complete photographic acceptance testing.
 - All artwork is original vector geometry, with installed serif/sans fallbacks and no new dependency or paid service. These studies are not runtime templates or transparent overlay files.
-- Next: review the Phase A visual direction, then implement the Minimal Clean vertical slice in Phase B. Phases B–E and production acceptance criteria remain pending.
+- Phases B/C: versioned registry, local font, shared composer, rotated/clipped windows, all five designs, filters and enlarged preview are implemented.
+- Phase D software: operator text/date/logo/captions, availability/default validation, uncropped new captures, session metadata, old-gallery compatibility and offline asset caching are implemented and tested.
+- Real iPad Safari, physical photographic crop/face review, long-event soak and printer validation remain hardware acceptance gates. Phase E remains the explicitly conditional extension after first-pack stability; the first delivery keeps other layouts on their existing frames.
 
 ## User-provided sample UI
 
@@ -136,7 +138,7 @@ Text fitting must be bounded. Long names should wrap or reduce font size within 
 
 ## 6. Integration with the current app
 
-Current verified code:
+Baseline code inspected before implementation (see the implementation report for current changes):
 
 - `src/data/booth.js`: four layouts and six procedural frames.
 - `src/services/images.js`: generic regular photo slots, frame decoration, fixed footer text.
@@ -301,6 +303,6 @@ Author single/double/grid variants, more palettes, and optional imported custom 
 - All added libraries and required assets follow the free-only policy, with documented licenses and no paid runtime dependency.
 - Picker, enlarged preview, and operator setup follow the UI ideas above; touch targets, selection persistence, cancel behavior, validation, and responsive layouts are checked.
 
-## Recommended next deliverable
+## Next release gate
 
-Create and review the five **900 x 2100** static template mockups, then implement Minimal Clean as the first fully working template. Preserve the current app until the new renderer is ready and verified.
+The five **900 x 2100** template implementations and local automated checks are complete. Review the running pack on the target iPad with actual photographs, verify camera/Share Sheet/offline relaunch and a long-event soak, then establish the printer/media requirements before print-specific artwork or the conditional Phase E extension. Details and reproducible checks are in [TEMPLATE_IMPLEMENTATION_REPORT.md](TEMPLATE_IMPLEMENTATION_REPORT.md).

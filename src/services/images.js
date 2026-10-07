@@ -1,4 +1,6 @@
 import { formatDate, getFrame, getLayout } from '../data/booth'
+import { getTemplate } from '../data/templates'
+import { composeTemplate } from './template-renderer'
 
 export function loadImage(source) {
   return new Promise((resolve, reject) => {
@@ -58,7 +60,12 @@ export function drawFrame(ctx, width, height, frameId) {
   }
 }
 
-export async function composePhoto({ photos, layout: layoutId, frame: frameId, settings }) {
+export async function composePhoto({ photos, layout: layoutId, frame: frameId, settings, templateId }) {
+  if (templateId) {
+    const template = getTemplate(templateId)
+    if (!template?.layoutIds.includes(layoutId)) throw new Error('Choose a template compatible with this layout.')
+    return composeTemplate({ photos, templateId, settings, width: settings.quality === 'standard' ? 630 : 900 })
+  }
   const layout = getLayout(layoutId), frame = getFrame(frameId)
   if (photos.length !== layout.count) throw new Error('The photo session is incomplete. Please retake your photos.')
   const scale = settings.quality === 'standard' ? 0.7 : 1

@@ -1,3 +1,4 @@
+import { normalizePhotoFilter, validatePhotoFilter } from '../photo-filters'
 import { LIMITS, THEMES } from './protocol'
 
 const KEY = 'photobooth.friends.room'
@@ -13,7 +14,8 @@ export function readRoom() {
     if (room.version !== 1 || !Number.isSafeInteger(room.generation) || room.generation < 0 || typeof room.host !== 'boolean' || !peer(room.id) || !token(room.secret) || (room.resume !== null && !token(room.resume)) || !THEMES[room.theme] || !Number.isFinite(room.expiresAt) || room.expiresAt <= Date.now() || room.expiresAt > Date.now() + LIMITS.room + 10000 || !Number.isFinite(room.savedAt) || room.savedAt > Date.now() + 10000 || Date.now() - room.savedAt > LIMITS.reconnect || (!room.host && (!peer(room.invitation?.peer) || room.invitation.secret !== room.secret))) {
       clearRoom(); return null
     }
-    return room
+    if (room.photoFilter !== undefined && !validatePhotoFilter(room.photoFilter)) { clearRoom(); return null }
+    return { ...room, photoFilter: normalizePhotoFilter(room.photoFilter) }
   } catch { clearRoom(); return null }
 }
 export function writeRoom(room) {

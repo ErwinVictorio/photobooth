@@ -1,7 +1,7 @@
 import Peer from 'peerjs'
 import { readRoom } from '../src/services/friends/storage'
 import { FriendsSession } from '../src/services/friends/session'
-import { readInvitation, digest, proof, validEnvelope, validFile, captureOffset, ICE_CONFIG } from '../src/services/friends/protocol'
+import { readInvitation, digest, proof, validEnvelope, validFile, captureOffset, ICE_CONFIG, VERSION } from '../src/services/friends/protocol'
 
 // This entry is bundled only into ignored test artifacts, never the production app.
 window.startFixture = async (link, port, recover = false) => {
@@ -30,8 +30,8 @@ window.resultHash = async () => digest(await window.session.state.result.arrayBu
 window.protocolChecks = async () => {
   const assert = (value, label) => { if (!value) throw new Error(label) }
   assert(ICE_CONFIG.iceServers.every(server => server.urls.startsWith('stun:')), 'No TURN defaults')
-  assert(!validEnvelope({ v: 1, seq: 4, type: 'ready' }, 4), 'Replay rejected')
-  assert(!validEnvelope({ v: 2, seq: 5, type: 'ready' }, 4), 'Incompatible version rejected')
+  assert(!validEnvelope({ v: VERSION, seq: 4, type: 'ready' }, 4), 'Replay rejected')
+  assert(!validEnvelope({ v: VERSION + 1, seq: 5, type: 'ready' }, 4), 'Incompatible version rejected')
   const meta = { id: 'a'.repeat(48), hash: 'b'.repeat(64), kind: 'still', size: 100, generation: 1, shot: 0 }
   assert(validFile(meta), 'Valid metadata')
   assert(!validFile({ ...meta, size: 2 * 1024 * 1024 + 1 }), 'Oversized still rejected')

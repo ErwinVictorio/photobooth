@@ -37,6 +37,17 @@ window.rendererChecks = async function () {
     }
     const logoPixel = ctx.getImageData(450, 1820, 1, 1).data
     assert(logoPixel[0] > 200 && logoPixel[1] < 40, `${t.name}: logo missing`)
+    const filtered = await createImageBitmap(await composeTemplate({ ...args, filter: { presetId: 'classic-bw', intensity: 1, version: 1 } }))
+    const filteredCanvas = document.createElement('canvas'); filteredCanvas.width = 900; filteredCanvas.height = 2100
+    const filteredCtx = filteredCanvas.getContext('2d'); filteredCtx.drawImage(filtered, 0, 0); filtered.close()
+    for (const slot of t.slots) {
+      const rgb = filteredCtx.getImageData(Math.round(slot.x + slot.width / 2), Math.round(slot.y + slot.height / 2), 1, 1).data
+      assert(Math.abs(rgb[0] - rgb[1]) < 4 && Math.abs(rgb[1] - rgb[2]) < 4, `${t.name}: photo filter not applied`)
+    }
+    for (const [x, y] of [[450, 1820], [450, 25]]) {
+      const before = ctx.getImageData(x, y, 1, 1).data, after = filteredCtx.getImageData(x, y, 1, 1).data
+      assert(before.every((value, i) => Math.abs(value - after[i]) < 5), `${t.name}: filter changed logo or paper`)
+    }
     const standard = await createImageBitmap(await composePhoto({ ...args, layout: 'strip', settings: { ...settings, quality: 'standard' } }))
     assert(standard.width === 630 && standard.height === 1470, `${t.name}: standard dimensions`); standard.close()
     await validateTemplate(t, { ...settings, eventName: '', eventDate: '', footerCaption: '', mainMessage: '', photoCaptions: ['', '', ''], logo: '' })

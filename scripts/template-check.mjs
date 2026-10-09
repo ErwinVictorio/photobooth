@@ -40,7 +40,7 @@ async function eventually(fn, label, timeout = 18000) {
   throw new Error(`Timed out: ${label}`)
 }
 function send(method, params = {}) {
-  return new Promise((resolve, reject) => { const id = ++seq; pending.set(id, { resolve, reject }); ws.send(JSON.stringify({ id, method, params })) })
+  return new Promise((resolve, reject) => { const id = ++seq; const timer = setTimeout(() => { pending.delete(id); reject(new Error(`Browser command timed out: ${method}`)) }, method === 'Runtime.evaluate' ? 75000 : 15000); pending.set(id, { resolve: value => { clearTimeout(timer); resolve(value) }, reject: error => { clearTimeout(timer); reject(error) } }); ws.send(JSON.stringify({ id, method, params })) })
 }
 async function evaluate(expression) {
   const response = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true, userGesture: true })
@@ -74,7 +74,7 @@ const dbRows = () => evaluate(`new Promise((resolve,reject) => { const r=indexed
 try {
   const target = await eventually(async () => { const port = (await readFile(join(profile, 'DevToolsActivePort'), 'utf8')).split('\n')[0].trim(); const targets = await (await fetch(`http://127.0.0.1:${port}/json`, { signal: AbortSignal.timeout(1500) })).json(); return targets.find(t => t.type === 'page') }, 'browser startup')
   ws = new WebSocket(target.webSocketDebuggerUrl)
-  await new Promise((resolve, reject) => { ws.onopen = resolve; ws.onerror = reject })
+  await new Promise((resolve, reject) => { const timer = setTimeout(() => reject(new Error('Browser debugger handshake timed out')), 10000); ws.onopen = () => { clearTimeout(timer); resolve() }; ws.onerror = error => { clearTimeout(timer); reject(error) } })
   ws.onmessage = event => { const message = JSON.parse(event.data); if (message.id) { const request = pending.get(message.id); pending.delete(message.id); if (message.error) request?.reject(new Error(message.error.message)); else request?.resolve(message.result) } else if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails.exception?.description || message.params.exceptionDetails.text) }
   await send('Runtime.enable'); await send('Page.enable'); await send('Network.enable')
   await send('Emulation.setDeviceMetricsOverride', { width: 820, height: 1180, deviceScaleFactor: 1, mobile: false })
@@ -134,11 +134,22 @@ try {
       const ratio = await evaluate('document.querySelector("video").videoWidth/document.querySelector("video").videoHeight')
       assert(await evaluate('(()=>{const el=document.querySelector(".camera-stage"),r=el.getBoundingClientRect();return Math.abs(r.width/r.height-parseFloat(el.style.aspectRatio))<.01})()'), 'Camera framing ratio differs from selected slot')
       await click('Take photos'); await waitText('That’s a keeper.'); await eventually(() => evaluate('document.querySelector(".photo-display img")?.naturalWidth === 900'), 'template composition')
+      const originalHash = await evaluate('fetch(document.querySelector(".photo-display img").src).then(r=>r.arrayBuffer()).then(b=>crypto.subtle.digest("SHA-256",b)).then(b=>Array.from(new Uint8Array(b)).join(","))')
+      await evaluate('document.querySelector("input[value=classic-bw]").click(); document.querySelector("input[value=sepia]").click()')
+      assert(await evaluate('Array.from(document.querySelectorAll("button")).find(b=>b.textContent.includes("Use these photos")).disabled'), 'Stale preview could be exported')
+      await eventually(() => evaluate('document.querySelector(".photo-filter-picker").getAttribute("aria-busy") === "false"'), 'latest filter preview')
+      assert(await evaluate('document.querySelector("input[value=sepia]").checked'), 'Latest selection lost')
+      await evaluate('document.querySelector("input[value=original]").click()')
+      await eventually(() => evaluate('document.querySelector(".photo-filter-picker").getAttribute("aria-busy") === "false"'), 'original restored')
+      const restoredHash = await evaluate('fetch(document.querySelector(".photo-display img").src).then(r=>r.arrayBuffer()).then(b=>crypto.subtle.digest("SHA-256",b)).then(b=>Array.from(new Uint8Array(b)).join(","))')
+      assert.equal(restoredHash, originalHash, 'Filter switching modified original captures')
+      await evaluate('document.querySelector("input[value=classic-bw]").click()')
+      await eventually(() => evaluate('document.querySelector(".photo-filter-picker").getAttribute("aria-busy") === "false"'), 'B&W export ready')
       const previewData = await evaluate('fetch(document.querySelector(".photo-display img").src).then(r=>r.blob()).then(b=>b.size)')
       await screenshot(`export-${name.toLowerCase().replaceAll(' ','-')}`)
       await click('Use these photos'); await waitText('Also saved in your local gallery.')
-      const row = await evaluate(`new Promise((resolve,reject)=>{const r=indexedDB.open('good-moments-photobooth',1);r.onsuccess=()=>{const db=r.result,tx=db.transaction('sessions'),q=tx.objectStore('sessions').getAll();q.onsuccess=async()=>{try{const row=q.result.sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).at(-1);const bitmap=await createImageBitmap(row.originals[0]);const result={templateId:row.templateId,version:row.templateVersion,originalFormat:row.originalFormat,ratio:bitmap.width/bitmap.height,size:row.finalPhoto.size,count:row.originals.length};bitmap.close();resolve(result)}catch(e){reject(e)}};tx.oncomplete=()=>db.close()}})`)
-      assert.equal(row.templateId, name.toLowerCase().replaceAll(' ', '-')); assert.equal(row.version,1); assert.equal(row.originalFormat,'uncropped-v1'); assert.equal(row.count,3); assert(Math.abs(row.ratio-ratio)<.003); assert.equal(row.size,previewData)
+      const row = await evaluate(`new Promise((resolve,reject)=>{const r=indexedDB.open('good-moments-photobooth',1);r.onsuccess=()=>{const db=r.result,tx=db.transaction('sessions'),q=tx.objectStore('sessions').getAll();q.onsuccess=async()=>{try{const row=q.result.sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).at(-1);const bitmap=await createImageBitmap(row.originals[0]);const result={photoFilter:row.photoFilter,templateId:row.templateId,version:row.templateVersion,originalFormat:row.originalFormat,ratio:bitmap.width/bitmap.height,size:row.finalPhoto.size,count:row.originals.length};bitmap.close();resolve(result)}catch(e){reject(e)}};tx.oncomplete=()=>db.close()}})`)
+      assert.equal(row.photoFilter.presetId, 'classic-bw'); assert.equal(row.photoFilter.version, 1); assert.equal(row.templateId, name.toLowerCase().replaceAll(' ', '-')); assert.equal(row.version,1); assert.equal(row.originalFormat,'uncropped-v1'); assert.equal(row.count,3); assert(Math.abs(row.ratio-ratio)<.003); assert.equal(row.size,previewData)
       await click('Take another photo')
     }
     assert.equal((await dbRows()).length,5)

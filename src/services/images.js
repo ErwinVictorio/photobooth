@@ -1,3 +1,4 @@
+import { drawFilteredCover } from './photo-filters'
 import { formatDate, getFrame, getLayout } from '../data/booth'
 import { getTemplate } from '../data/templates'
 import { composeTemplate } from './template-renderer'
@@ -60,11 +61,11 @@ export function drawFrame(ctx, width, height, frameId) {
   }
 }
 
-export async function composePhoto({ photos, layout: layoutId, frame: frameId, settings, templateId }) {
+export async function composePhoto({ photos, layout: layoutId, frame: frameId, settings, templateId, filter }) {
   if (templateId) {
     const template = getTemplate(templateId)
     if (!template?.layoutIds.includes(layoutId)) throw new Error('Choose a template compatible with this layout.')
-    return composeTemplate({ photos, templateId, settings, width: settings.quality === 'standard' ? 630 : 900 })
+    return composeTemplate({ photos, templateId, settings, filter, width: settings.quality === 'standard' ? 630 : 900 })
   }
   const layout = getLayout(layoutId), frame = getFrame(frameId)
   if (photos.length !== layout.count) throw new Error('The photo session is incomplete. Please retake your photos.')
@@ -76,7 +77,7 @@ export async function composePhoto({ photos, layout: layoutId, frame: frameId, s
   const rects = photoRects(layoutId, width, height)
   for (let i = 0; i < photos.length; i++) {
     const image = await loadImage(photos[i]), r = rects[i]
-    drawCover(ctx, image, r.x, r.y, r.width, r.height)
+    drawFilteredCover(ctx, image, r.x, r.y, r.width, r.height, filter)
   }
   drawFrame(ctx, width, height, frameId)
   const last = rects[rects.length - 1], footerY = last.y + last.height

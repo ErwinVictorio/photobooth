@@ -1,3 +1,4 @@
+import { normalizePhotoFilter, validatePhotoFilter } from '../photo-filters'
 import Peer from 'peerjs'
 import { clearRoom, writeRoom } from './storage'
 import { VERSION, LIMITS, THEMES, ICE_CONFIG, randomId, digest, proof, validEnvelope, validFile, captureOffset } from './protocol'
@@ -18,6 +19,8 @@ export class FriendsSession {
     if (recovery) this.state.theme = recovery.theme
     this.generation = 0; this.own = []; this.other = []; this.acks = new Set(); this.waiters = new Map(); this.incoming = null
     if (recovery) this.generation = recovery.generation
+    this.filterRevision = 0; this.renderRequest = 0;
+    this.state.photoFilter = normalizePhotoFilter(recovery?.photoFilter); this.state.filterBusy = false; this.state.remoteFilterReady = false;
     this.sequence = 0; this.disposed = false; this.closed = false; this.video = null; this.captureTimes = []; this.remoteTimes = []; this.timingDifferences = []
     this.subscribe = listener => { this.listeners.add(listener); return () => this.listeners.delete(listener) }
     this.getSnapshot = () => this.state
@@ -114,6 +117,11 @@ export class FriendsSession {
     })
     connection.on('data', message => {
       if (Date.now() - windowAt > 1000) { windowAt = Date.now(); count = 0 }
+      if (message?.v !== undefined && message.v !== VERSION) {
+        if (!this.host || connection === this.conn) this.end('Refresh both devices to use the updated booth.')
+        else { this.raw(connection, 'denied', { reason: 'Refresh both devices to use the updated booth.' }); this.later(() => connection.close(), 200) }
+        return
+      }
       if (++count > 300 || ++queued > 256 || !validEnvelope(message, last) || JSON.stringify(message).length > 20000) { connection.close(); return }
       last = message.seq
       queue = queue.then(async () => {
@@ -129,7 +137,7 @@ export class FriendsSession {
         }
         if (message.type === 'admitted' && !this.host && !this.state.connected && /^[a-f0-9]{48}$/.test(message.resume)) {
           this.resume = message.resume; this.conn = connection; this.clear(timeout); this.clear(this.reconnectTimer)
-          this.admitted(message.expiresAt); this.send('camera', { value: this.state.cameraReady, mirror: this.state.mirror }); return
+          if (!validatePhotoFilter(message.filter)) throw new Error('Invalid shared filter'); this.update({ photoFilter: normalizePhotoFilter(message.filter) }); this.admitted(message.expiresAt); this.send('camera', { value: this.state.cameraReady, mirror: this.state.mirror }); return
         }
         if (connection !== this.conn || !this.state.connected) return
         await this.receive(message)
@@ -154,7 +162,7 @@ export class FriendsSession {
     this.pending = null; this.conn = connection; this.resume ||= randomId()
     if (!resuming) { this.clear(this.expiry); this.expiresAt = Date.now() + LIMITS.room; this.expiry = this.later(() => this.end('This room has expired.'), LIMITS.room) }
     this.clear(this.reconnectTimer)
-    this.raw(connection, 'admitted', { resume: this.resume, expiresAt: this.expiresAt })
+    this.raw(connection, 'admitted', { resume: this.resume, expiresAt: this.expiresAt, filter: this.state.photoFilter })
     this.admitted(this.expiresAt)
     this.send('camera', { value: this.state.cameraReady, mirror: this.state.mirror }); this.resetCapture()
   }
@@ -184,7 +192,7 @@ export class FriendsSession {
   }
   persist() {
     if (this.closed || !this.id || !this.secret || !this.state.expiresAt) return
-    if (!writeRoom({ host: this.host, id: this.id, secret: this.secret, resume: this.resume || null, invitation: this.invitation || null, theme: this.state.theme, generation: this.generation, expiresAt: this.state.expiresAt })) this.update({ error: 'Browser storage is unavailable. Keep this page open to retain your room.' })
+    if (!writeRoom({ host: this.host, id: this.id, secret: this.secret, resume: this.resume || null, invitation: this.invitation || null, theme: this.state.theme, generation: this.generation, photoFilter: this.state.photoFilter, expiresAt: this.state.expiresAt })) this.update({ error: 'Browser storage is unavailable. Keep this page open to retain your room.' })
   }
   scheduleRetry() {
     this.clear(this.retryTimer)
@@ -223,16 +231,18 @@ export class FriendsSession {
     this.update({ ready: !this.state.ready }); this.send('ready', { value: this.state.ready, generation: this.generation })
   }
   abortWork() {
+    this.renderRequest++; this.clear(this.filterTimer)
     this.clear(this.captureTimer); this.clear(this.watchdog); this.clear(this.countTimer); this.clear(this.fileTimer)
     for (const waiter of this.waiters.values()) { this.clear(waiter.timer); waiter.reject(new Error('Session interrupted.')) }
     this.waiters.clear(); this.incoming = null; this.samples = []; this.prepared = false
   }
   resetCapture(reason = '') {
     if (!this.host) return
+    this.renderRequest++; this.clear(this.filterTimer); this.filterRevision = 0;
     this.abortWork(); this.generation++; this.own = []; this.other = []; this.acks.clear(); this.captureTimes = []; this.remoteTimes = []; this.timingDifferences = []
-    this.update({ ...emptyCapture, stage: 'booth', error: reason })
+    this.update({ ...emptyCapture, filterBusy: false, remoteFilterReady: false, stage: 'booth', error: reason })
     this.persist()
-    this.send('reset', { generation: this.generation, theme: this.state.theme, reason })
+    this.send('reset', { generation: this.generation, theme: this.state.theme, filter: this.state.photoFilter, reason })
   }
   requestReset(reason = '') {
     if (this.host) this.resetCapture(reason)
@@ -300,17 +310,33 @@ export class FriendsSession {
     if (shot < 2) this.scheduleShot(shot + 1)
     else { this.send('review', { generation: this.generation }); this.review().catch(error => this.requestReset(error.message)) }
   }
+  setFilter(value) {
+    if (!this.host || !this.state.connected || !['review', 'composing'].includes(this.state.stage) || !validatePhotoFilter(value) || this.own.filter(Boolean).length !== 3 || this.other.filter(Boolean).length !== 3) return
+    this.filterRevision++; this.renderRequest++
+    this.update({ photoFilter: normalizePhotoFilter(value), approved: false, remoteApproved: false, remoteFilterReady: false, filterBusy: true, stage: 'review', error: '' })
+    this.persist(); this.send('filter-update', { generation: this.generation, revision: this.filterRevision, filter: this.state.photoFilter })
+    this.clear(this.filterTimer)
+    this.filterTimer = this.later(() => this.review().catch(error => this.fail(error.message)), 150)
+  }
   async review() {
     this.clear(this.watchdog)
     if (this.own.filter(Boolean).length !== 3 || this.other.filter(Boolean).length !== 3) throw new Error('Missing photos')
-    const generation = this.generation
-    this.update({ stage: 'composing', status: 'Putting your photos together…' })
-    const preview = await composeFriends(this.host ? this.own : this.other, this.host ? this.other : this.own, this.state.theme)
-    if (generation === this.generation && !this.closed) { this.update({ preview, stage: 'review', status: 'Both friends must approve these photos.' }); this.finalize() }
+    const generation = this.generation, revision = this.filterRevision, request = ++this.renderRequest
+    this.update({ stage: this.state.preview ? 'review' : 'composing', filterBusy: true, status: 'Putting your photos together…' })
+    let preview
+    try { preview = await composeFriends(this.host ? this.own : this.other, this.host ? this.other : this.own, this.state.theme, this.state.photoFilter) }
+    catch (error) {
+      if (generation === this.generation && revision === this.filterRevision && request === this.renderRequest && !this.closed) throw error
+      return
+    }
+    if (generation === this.generation && revision === this.filterRevision && request === this.renderRequest && !this.closed) {
+      this.update({ preview, filterBusy: false, stage: 'review', status: 'Both friends must approve these photos.' })
+      this.send('filter-rendered', { generation, revision }); this.finalize()
+    }
   }
-  approve() { if (this.state.stage === 'review') { this.update({ approved: true }); this.send('approve', { generation: this.generation }); this.finalize() } }
+  approve() { if (this.state.stage === 'review' && !this.state.filterBusy && this.state.remoteFilterReady) { this.update({ approved: true }); this.send('approve', { generation: this.generation, revision: this.filterRevision }); this.finalize() } }
   async finalize() {
-    if (!this.host || !this.state.approved || !this.state.remoteApproved || this.state.stage !== 'review') return
+    if (!this.host || this.state.filterBusy || !this.state.remoteFilterReady || !this.state.approved || !this.state.remoteApproved || this.state.stage !== 'review') return
     const generation = this.generation, result = this.state.preview
     this.update({ stage: 'finalizing', result, status: 'Sending the finished photo to your friend…' })
     try {
@@ -350,12 +376,21 @@ export class FriendsSession {
     if (type === 'pong') { if (Number.isFinite(message.time)) this.resolve(message.id, message.time); return }
     if (type === 'reset' && !this.host) {
       if (!Number.isSafeInteger(message.generation) || message.generation <= this.generation || !THEMES[message.theme]) return
+      if (!validatePhotoFilter(message.filter)) throw new Error('Invalid shared filter')
+      this.renderRequest++; this.filterRevision = 0; this.clear(this.filterTimer)
       this.abortWork(); this.generation = message.generation; this.own = []; this.other = []; this.acks.clear()
-      this.update({ ...emptyCapture, theme: message.theme, stage: 'booth', error: typeof message.reason === 'string' ? message.reason.slice(0, 180) : '' }); return
+      this.update({ ...emptyCapture, theme: message.theme, photoFilter: normalizePhotoFilter(message.filter), filterBusy: false, remoteFilterReady: false, stage: 'booth', error: typeof message.reason === 'string' ? message.reason.slice(0, 180) : '' }); return
     }
     if (type === 'file-ack') { this.resolve(message.id); return }
     if (type === 'file-chunk' || type === 'file-end') { await this.receiveFile(message); return }
     if (message.generation !== this.generation) return
+    if (type === 'filter-update' && !this.host) {
+      if (!validatePhotoFilter(message.filter) || !Number.isSafeInteger(message.revision) || message.revision <= this.filterRevision || !['review', 'composing'].includes(this.state.stage)) return
+      this.filterRevision = message.revision; this.renderRequest++
+      this.update({ photoFilter: normalizePhotoFilter(message.filter), approved: false, remoteApproved: false, remoteFilterReady: false, filterBusy: true, stage: 'review', error: '' }); this.persist()
+      this.clear(this.filterTimer); this.filterTimer = this.later(() => this.review().catch(error => this.fail(error.message)), 150); return
+    }
+    if (type === 'filter-rendered' && message.revision === this.filterRevision) { this.update({ remoteFilterReady: true }); this.finalize(); return }
     if (type === 'reset-request' && this.host) { this.resetCapture(); return }
     if (type === 'ready' && this.state.stage === 'booth') { this.update({ remoteReady: message.value === true }); return }
     if (type === 'prepare' && !this.host && this.state.ready && this.state.remoteReady && this.state.cameraReady && this.state.remote && !document.hidden && Number.isInteger(message.shot) && message.shot === this.own.filter(Boolean).length && message.shot < 3) {
@@ -364,11 +399,11 @@ export class FriendsSession {
     if (type === 'prepared' && this.host) { this.resolve(`prepare-${this.generation}-${message.shot}`); return }
     if (type === 'schedule' && !this.host && this.prepared === message.shot && Number.isFinite(message.target)) { this.prepared = false; this.scheduleLocal(message.shot, message.target); return }
     if (type === 'review' && !this.host && this.state.stage === 'transferring') { await this.review(); return }
-    if (type === 'approve' && ['composing', 'review'].includes(this.state.stage)) { this.update({ remoteApproved: true }); this.finalize(); return }
+    if (type === 'approve' && message.revision === this.filterRevision && ['composing', 'review'].includes(this.state.stage)) { this.update({ remoteApproved: true }); this.finalize(); return }
     if (type === 'file-start') {
       if (!validFile(message) || this.incoming) throw new Error('Invalid transfer')
       const isStill = message.kind === 'still' && Number.isFinite(message.capturedAt) && ['countdown', 'transferring'].includes(this.state.stage) && message.shot === this.state.shot && !this.other[message.shot]
-      const isResult = message.kind === 'result' && !this.host && this.state.stage === 'review' && this.state.approved && this.state.remoteApproved
+      const isResult = message.kind === 'result' && !this.host && this.state.stage === 'review' && this.state.approved && this.state.remoteApproved && !this.state.filterBusy && this.state.remoteFilterReady
       if (!isStill && !isResult) throw new Error('Unexpected image')
       this.incoming = { ...message, chunks: [], received: 0 }
       this.fileTimer = this.later(() => this.requestReset('Incoming photo transfer timed out. Please retake.'), 45000)

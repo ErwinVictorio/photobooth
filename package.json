@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test:browser": "node scripts/browser-check.mjs",
     "test:friends": "node scripts/friends-check.mjs",
+    "test:filters": "node scripts/photo-filter-check.mjs",
     "test:templates": "node scripts/build-renderer-fixture.mjs && node scripts/template-check.mjs"
   },
   "dependencies": {

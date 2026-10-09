@@ -1,6 +1,7 @@
+import { drawFilteredCover } from './photo-filters'
 import { getTemplate } from '../data/templates'
 import { formatDate } from '../data/booth'
-import { canvasBlob, drawCover, loadImage } from './images'
+import { canvasBlob, loadImage } from './images'
 
 let fontPromise
 export function templateFonts() {
@@ -85,7 +86,7 @@ function fieldValue(field, settings) {
   if (field === 'eventName') return settings.showTitle ? settings.eventName : ''
   return settings[field] || ''
 }
-export async function composeTemplate({ photos, templateId, settings, width = 900, sample = false }) {
+export async function composeTemplate({ photos, templateId, settings, width = 900, sample = false, filter }) {
   const t = getTemplate(templateId)
   if (!t) throw new Error('This template is unavailable. Please select another design.')
   if (!sample && photos.length !== t.slots.length) throw new Error('The photo session is incomplete. Please retake your photos.')
@@ -100,7 +101,7 @@ export async function composeTemplate({ photos, templateId, settings, width = 90
     ctx.fillRect(x - 17, y - 17, r.width + 34, r.height + (polaroid ? 105 : 34)); ctx.shadowColor = 'transparent'
     ctx.save(); ctx.beginPath(); ctx.roundRect(x, y, r.width, r.height, r.radius); ctx.clip()
     if (photos[r.photoIndex]) {
-      const image = await loadImage(photos[r.photoIndex]); drawCover(ctx, image, x, y, r.width, r.height); image.src = ''
+      const image = await loadImage(photos[r.photoIndex]); drawFilteredCover(ctx, image, x, y, r.width, r.height, filter); image.src = ''
     } else if (sample) drawSample(ctx, x, y, r.width, r.height, r.photoIndex)
     ctx.restore()
     if (polaroid) {

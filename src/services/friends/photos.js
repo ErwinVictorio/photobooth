@@ -1,4 +1,5 @@
-import { canvasBlob, drawCover, loadImage } from '../images'
+import { canvasBlob, loadImage } from '../images'
+import { drawFilteredCover } from '../photo-filters'
 import { LIMITS, THEMES } from './protocol'
 
 export async function captureStill(video, mirror) {
@@ -25,7 +26,7 @@ export async function validatePhoto(blob, kind) {
   return image
 }
 
-export async function composeFriends(host, guest, theme) {
+export async function composeFriends(host, guest, theme, filter) {
   if (host.length !== 3 || guest.length !== 3 || !THEMES[theme]) throw new Error('All six photos are needed.')
   const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 2000
   const ctx = canvas.getContext('2d'), colors = THEMES[theme]
@@ -34,7 +35,7 @@ export async function composeFriends(host, guest, theme) {
   for (let row = 0; row < 3; row++) {
     for (let col = 0; col < 2; col++) {
       const image = await validatePhoto((col === 0 ? host : guest)[row], 'still')
-      drawCover(ctx, image, 60 + col * 552, 165 + row * 545, 528, 515)
+      drawFilteredCover(ctx, image, 60 + col * 552, 165 + row * 545, 528, 515, filter)
     }
   }
   ctx.font = '34px Georgia'; ctx.fillText('Together, anywhere.', 600, 1880)

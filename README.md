@@ -50,6 +50,7 @@ Welcome → layout → template (or legacy frame) → camera/countdown → previ
 - Single, double and grid retain six locally drawn frame styles.
 - Front camera preview and output use the same mirror setting. New originals keep the full camera field of view at bounded resolution; final composition applies the selected slot crop.
 - Full-session retake; camera tracks stop when leaving capture or hiding the app.
+- Preview includes Original, Classic B&W, Warm Vintage, Soft Color, Sepia, and Cool Film with adjustable intensity. Filters affect photo areas only; original captures stay unchanged.
 - Final JPEG, thumbnail, and original captures are committed together to IndexedDB only after **Use these photos**.
 - Storage failure preserves the final image in the current screen and offers download plus retry.
 - Save to Device requests a download. Supported browsers also offer native file sharing. iPad users choose Save to Photos, Files, or AirDrop in the Share Sheet as available.
@@ -67,6 +68,8 @@ New versions wait until the old app's tabs/windows close before activating, so a
 
 ## Release scope
 
-See `Docs/IMPLEMENTATION_STATUS.md` for verification and remaining release gates. Actual iPad camera, sharing, Home Screen installation, and printer checks remain necessary. Filters/stickers, custom frame PNG imports, bulk ZIP export, PIN authentication, cloud/QR sharing, and later business features are deferred. The MVP uses native browser APIs and CSS rather than adding the optional UI/database/PWA wrappers from the recommended stack.
+See `Docs/IMPLEMENTATION_STATUS.md` for verification and remaining release gates. Actual iPad camera, sharing, Home Screen installation, and printer checks remain necessary. Stickers/AR effects, custom frame PNG imports, bulk ZIP export, PIN authentication, cloud/QR sharing, and later business features are deferred. The MVP uses native browser APIs and CSS rather than adding the optional UI/database/PWA wrappers from the recommended stack.
+
+For reusable photo filters, see [the integration notes](Docs/PHOTO_FILTER_IMPLEMENTATION_REPORT.md). Run `npm run test:filters` for color math, validation, room recovery compatibility, and Friends approval/revision checks. In Friends review, the host chooses one shared filter and both users must approve the latest rendered look. Both devices must use the updated app version.
 
 For template implementation details, font licensing and acceptance checks, see [the template report](Docs/TEMPLATE_IMPLEMENTATION_REPORT.md). After `npm run build`, run `npm run test:browser` for the base regression suite and `npm run test:templates` for rendering, picker, validation, legacy gallery and all-five-template offline checks.

@@ -1,4 +1,7 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import PhotoFilterPicker from './components/filters/PhotoFilterPicker'
+import useFilteredComposition from './hooks/useFilteredComposition'
+import { ORIGINAL_FILTER } from './data/photo-filters'
 import Icon from './components/Icon'
 import { Botanical, FrameSample } from './components/BoothArt'
 import Dialog from './components/Dialog'
@@ -37,14 +40,17 @@ function App() {
   const [layout, setLayout] = useState(settings.layout), [frame, setFrame] = useState(settings.frame)
   const [templateId, setTemplateId] = useState(settings.templateId)
   const selectedTemplate = resolveTemplate(layout, templateId, settings)
-  const [photos, setPhotos] = useState([]), [composed, setComposed] = useState(null), [result, setResult] = useState(null)
+  const [photoFilter, setPhotoFilter] = useState(ORIGINAL_FILTER)
+  const [photos, setPhotos] = useState([]), [result, setResult] = useState(null)
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState(''), [stored, setStored] = useState(false)
-  const hold = useRef(null), lock = useRef(false), compositionId = useRef(0)
+  const hold = useRef(null), lock = useRef(false)
+  const renderPreview = useCallback(() => composePhoto({ photos, layout, frame, settings, templateId: selectedTemplate?.id, filter: photoFilter }), [photos, layout, frame, settings, selectedTemplate?.id, photoFilter])
+  const filteredPreview = useFilteredComposition(renderPreview, page === 'preview' && photos.length > 0, photos)
   const eventKey = JSON.stringify([settings.eventName, settings.eventDate])
   useEffect(() => () => clearTimeout(hold.current), [])
   useEffect(() => { window.scrollTo(0, 0); document.title = `${titles[page]} · Good Moments` }, [page])
   const go = (next) => { setError(''); setNotice(''); setPage(next) }
-  function reset() { compositionId.current++; setPhotos([]); setComposed(null); setResult(null); setStored(false); setLayout(settings.layout); setFrame(settings.frame); setTemplateId(settings.templateId); go('welcome') }
+  function reset() { setPhotos([]); setResult(null); setStored(false); setPhotoFilter(ORIGINAL_FILTER); setLayout(settings.layout); setFrame(settings.frame); setTemplateId(settings.templateId); go('welcome') }
   async function fullscreen() {
     try {
       if (document.fullscreenElement) await document.exitFullscreen()
@@ -55,17 +61,15 @@ function App() {
   function persistSettings(value) {
     try { localStorage.setItem('photobooth.settings', JSON.stringify(value)); setSettings(value); setLayout(value.layout); setFrame(value.frame); setTemplateId(value.templateId); go('welcome'); setNotice('Your booth settings are saved.') } catch { setError('Settings could not be saved. Browser storage may be full or disabled.') }
   }
-  async function prepare(captures) {
-    const token = ++compositionId.current
-    setPhotos(captures); setComposed(null); go('preview'); setBusy(true)
-    try { const blob = await composePhoto({ photos: captures, layout, frame, settings, templateId: selectedTemplate?.id }); if (token === compositionId.current) setComposed(blob) } catch (e) { if (token === compositionId.current) setError(e.message) } finally { if (token === compositionId.current) setBusy(false) }
+  function prepare(captures) {
+    setPhotos(captures); go('preview')
   }
   async function finish() {
-    if (!composed || lock.current) return
+    if (!filteredPreview.ready || lock.current) return
     lock.current = true; setBusy(true); setError('')
     try {
       const now = new Date(), id = `${now.getTime()}-${crypto.getRandomValues(new Uint32Array(2)).join('-')}`
-      const session = { id, eventKey, eventName: settings.eventName, eventDate: settings.eventDate, createdAt: now.toISOString(), layout, frame, templateId: selectedTemplate?.id || null, templateVersion: selectedTemplate?.version || null, originalFormat: 'uncropped-v1', originals: photos, finalPhoto: composed, thumbnail: await thumbnail(composed), filename: `Photobooth_${now.toISOString().replace(/[:.]/g, '-')}.jpg` }
+      const session = { id, eventKey, eventName: settings.eventName, eventDate: settings.eventDate, createdAt: now.toISOString(), layout, frame, templateId: selectedTemplate?.id || null, templateVersion: selectedTemplate?.version || null, originalFormat: 'uncropped-v1', originals: photos, photoFilter, finalPhoto: filteredPreview.blob, thumbnail: await thumbnail(filteredPreview.blob), filename: `Photobooth_${now.toISOString().replace(/[:.]/g, '-')}.jpg` }
       setResult(session); go('result')
       try { await saveSession(session); setStored(true) } catch { setStored(false); setError('Your photo is ready, but the local gallery could not save it. Save to Device now, or free storage and retry.') }
     } catch (e) { setError(e.message || 'The photo could not be prepared. Try again.') } finally { setBusy(false); lock.current = false }
@@ -89,7 +93,7 @@ function App() {
       {page === 'frame' && layout === 'strip' && <TemplatePicker layout={layout} templateId={selectedTemplate?.id} settings={settings} onSelect={setTemplateId} onBack={() => go('layout')} onContinue={() => go('camera')}/>}
       {page === 'frame' && layout !== 'strip' && <section className="selection-page page-enter"><Heading eyebrow="02 / THE FINISHING TOUCH" title="Frame your kind of happy.">A little detail that makes it yours.</Heading><div className="frame-grid">{frames.map((item) => <button key={item.id} className={`choice-card frame-card ${frame === item.id ? 'selected' : ''}`} aria-pressed={frame === item.id} onClick={() => setFrame(item.id)}><span className="selection-check">{frame === item.id && <Icon name="check" size={16}/>}</span><div className="sample-stage"><FrameSample layout={layout} frame={item.id}/></div><h2>{item.name}</h2><p>{item.detail}</p></button>)}</div><div className="actions"><button className="button secondary" onClick={() => go('layout')}><Icon name="back"/> Back</button><button className="button" onClick={() => go('camera')}>Let’s take photos <Icon name="camera"/></button></div></section>}
       {page === 'camera' && <Camera settings={settings} layout={layout} templateId={selectedTemplate?.id} onComplete={prepare} onBack={() => go('frame')}/>}
-      {page === 'preview' && <section className="preview-page page-enter"><Heading eyebrow="LOOK AT YOU" title="That’s a keeper.">A little collection of your best moments.</Heading><div className="photo-display">{composed ? <BlobImage blob={composed} alt="Your composed photobooth preview"/> : <div className="empty-state" role="status">{busy ? 'Putting your memories together…' : 'Preview unavailable. Retry or retake your photos.'}</div>}</div><div className="actions"><button className="button secondary" disabled={busy} onClick={() => { setPhotos([]); setComposed(null); go('camera') }}><Icon name="refresh"/> Retake photos</button>{!composed && !busy ? <button className="button" onClick={() => prepare(photos)}>Retry preview</button> : <button className="button" disabled={!composed || busy} onClick={finish}>Use these photos <Icon name="check"/></button>}</div><p className="small-note">{getLayout(layout).name} · {selectedTemplate?.name || frames.find((f) => f.id === frame)?.name}</p></section>}
+      {page === 'preview' && <section className="preview-page page-enter"><Heading eyebrow="LOOK AT YOU" title="That’s a keeper.">A little collection of your best moments.</Heading><div className="photo-display">{filteredPreview.blob ? <BlobImage blob={filteredPreview.blob} alt="Your composed photobooth preview"/> : <div className="empty-state" role="status">{filteredPreview.busy ? 'Putting your memories together...' : 'Preview unavailable. Retry or retake your photos.'}</div>}</div><PhotoFilterPicker value={photoFilter} onChange={setPhotoFilter} sample={photos[0]} busy={filteredPreview.busy} disabled={busy}/>{filteredPreview.error && <p className="notice error" role="alert">{filteredPreview.error}</p>}<div className="actions"><button className="button secondary" disabled={busy} onClick={() => { setPhotos([]); go('camera') }}><Icon name="refresh"/> Retake photos</button>{filteredPreview.error && <button className="button secondary" onClick={filteredPreview.retry}>Retry preview</button>}<button className="button" disabled={!filteredPreview.ready || busy} onClick={finish}>Use these photos <Icon name="check"/></button></div><p className="small-note">{getLayout(layout).name} / {selectedTemplate?.name || frames.find(f => f.id === frame)?.name}</p></section>}
       {page === 'result' && result && <section className="result-page page-enter"><div className="screen-heading"><span className="success-mark"><Icon name="check" size={25}/></span><h1>A moment to keep.</h1><p>Your photo is ready. Take the memory with you.</p></div><div className="result-grid"><div className="photo-display"><BlobImage blob={result.finalPhoto} alt="Your finished photobooth photo" className="print-photo"/></div><div className="result-actions"><span className="eyebrow">MADE WITH A LITTLE HAPPINESS</span><h2>{result.eventName}</h2><p>{formatDate(result.eventDate)}</p><button className="button" onClick={() => { downloadPhoto(result.finalPhoto, result.filename); setNotice('Download requested. On iPad, check Downloads or use Share Photo to save to Photos.') }}><Icon name="download"/> Save to device</button>{canShare(result) && <button className="button secondary" onClick={async () => { try { await sharePhoto(result) } catch (e) { if (e.name !== 'AbortError') setError('Sharing is unavailable right now. Use Save to Device instead.') } }}><Icon name="share"/> Share photo</button>}<button className="button secondary" onClick={() => window.print()}><Icon name="print"/> Print photo</button><div className="saved-note"><Icon name={stored ? 'check' : 'gallery'} size={18}/>{stored ? 'Also saved in your local gallery.' : 'Not yet saved to the local gallery.'}</div>{!stored && <button className="text-button" disabled={busy} onClick={retrySave}>Retry saving to gallery</button>}<button className="button secondary another-button" disabled={busy} onClick={reset}><Icon name="camera"/> Take another photo</button>{operator && <button className="text-button" disabled={busy} onClick={() => go('gallery')}>Back to gallery</button>}</div></div></section>}
       {operator && page === 'setup' && <EventSetup settings={settings} onSave={persistSettings}/>}
       {operator && page === 'settings' && <Settings settings={settings} onSave={persistSettings} eventKey={eventKey} onFullscreen={fullscreen} onCameraTest={() => { setLayout('single'); go('camera') }}/>}

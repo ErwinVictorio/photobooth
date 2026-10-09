@@ -17,6 +17,10 @@
 .friend-countdown { position: absolute; inset: 0; display: grid; place-items: center; font-size: 110px; font-weight: bold; color: white; text-shadow: 0 2px 20px #000; background: #0002; pointer-events: none; }
 .friend-code { display: block; font-size: 32px; letter-spacing: 6px; margin: 20px 0; font-family: monospace; }
 .friend-photo { display: block; width: min(100%, 360px); margin: auto; box-shadow: 0 12px 28px #24321e24; }
+.friend-review, .friend-result { scroll-margin-top: 16px; }
+.friend-result .friend-photo, .friend-review .friend-photo { max-height: 52svh; width: auto; max-width: 100%; object-fit: contain; }
+.friend-save-actions { margin: 16px 0; }
+@media (max-width: 600px) { .friend-save-actions { flex-direction: column; } .friend-save-actions .button { width: 100%; min-height: 48px; flex: none; } }
 .friend-footer { text-align: center; line-height: 1.8; margin-top: 28px; }
 .friends-entry { margin: 14px auto 0; }
 .friends-guide { margin: 0 0 20px; border: 1px solid #a5ad9c; border-radius: 16px; background: #fffdf8; color: #303b2e; }

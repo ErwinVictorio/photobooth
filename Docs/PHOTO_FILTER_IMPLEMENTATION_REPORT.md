@@ -8,7 +8,7 @@ The newest completed preview is required before **Use these photos**. Downloads,
 
 Friends review uses the same component and rendering service. Host changes propagate to the guest, invalidate both approvals immediately, and require a matching rendered revision on both devices before approval. Edits retain all six captures. The guest sees read-only controls. Final transfer still sends one identical JPEG to both devices.
 
-Room recovery persists validated filter settings. Older saved rooms without those settings default to Original. Photo captures themselves are not stored in room recovery. Friends protocol version is now 2; mixed versions receive a refresh message. An incompatible unadmitted connection cannot end an existing host session.
+Room recovery persists validated filter settings. Older saved rooms without those settings default to Original. Photo captures themselves are not stored in room recovery. Friends protocol version is now 3 (including optional host voice guidance); mixed versions receive a refresh message. An incompatible unadmitted connection cannot end an existing host session.
 
 ## Attach the reusable picker
 

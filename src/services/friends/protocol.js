@@ -1,4 +1,4 @@
-export const VERSION = 2
+export const VERSION = 3
 export const LIMITS = { still: 2 * 1024 * 1024, result: 10 * 1024 * 1024, chunk: 12000, room: 60 * 60 * 1000, waiting: 10 * 60 * 1000, reconnect: 5 * 60 * 1000 }
 export const THEMES = { sage: { name: 'Botanical', paper: '#f8f5ef', ink: '#3f5140' }, rose: { name: 'Rose', paper: '#fff0f3', ink: '#923f5b' }, film: { name: 'Film', paper: '#262724', ink: '#fff8e9' } }
 export const ICE_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }], iceTransportPolicy: 'all' }

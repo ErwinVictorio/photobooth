@@ -9,7 +9,7 @@ Status: Implemented as a free, two-person beta. Production build is ready for th
 - Welcome entry: **Photo with a friend**. Existing local booth remains available.
 - Invitation fragment contains a random host peer ID and separate secret; it is removed from the guest address bar after entry.
 - PeerJS public signaling with explicit STUN-only configuration. No paid TURN defaults, provider keys, custom application backend, or cloud database.
-- Host can create and copy the invitation before enabling a camera. Guest camera preparation remains required before Join. Microphone disabled; front/rear selection and mirror-consistent previews/stills.
+- Host can create and copy the invitation before enabling a camera. Guest camera preparation remains required before Join. Microphone off by default; optional host-only live voice guidance after both identity confirmations. Front/rear selection and mirror-consistent previews/stills.
 - Challenge-response invitation validation; host admission; one guest slot; extra participants rejected.
 - Matching confirmation code, confirmed by both people through their existing chat before media sharing.
 - Host-selected Botanical, Rose, and Film paired frames.
@@ -27,6 +27,14 @@ Status: Implemented as a free, two-person beta. Production build is ready for th
 - Build flag `VITE_FRIENDS_ENABLED=false` to disable Friends entry and invitation routing.
 
 ## Verification
+
+### Host voice guidance
+
+Host-only audio uses a separate authenticated PeerJS media call (`metadata.kind = host-audio`), so enabling or muting it does not rebuild the video call or discard captures. Host permission requests are audio-only with echo cancellation, noise suppression and automatic gain control requested. The guest answers without sending a microphone stream. Mic state is live only; it is not restored from storage. Permission errors use a dedicated message. Late permission grants are stopped if the user has paused/left in the meantime.
+
+Host controls: Enable mic, Mute/Unmute, and Turn mic off. Guest playback uses an audio element and offers Listen to host when autoplay fails. Pausing camera, hiding the page, ending, losing the data connection and renewed admission all stop/revoke mic use. No audio recording or new paid service is added. STUN-only networking limitations remain.
+
+Protocol is version 3; reopen both clients after deployment. Simulated consent/mute/cleanup/denial/authentication tests pass through `npm.cmd run test:filters`. The Friends browser suite includes a synthetic microphone transport check, but real WebRTC audio transport, Safari playback, speaker/headphone routing and audibility remain unverified in the current environment.
 
 ### Latest host-recovery correction
 

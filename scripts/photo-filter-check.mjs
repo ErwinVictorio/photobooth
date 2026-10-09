@@ -149,7 +149,7 @@ async function answerChallenge(connection, resume) {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(recoveryHost.secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
   const bytes = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(connection.messages.find(message => message.type === 'challenge').challenge))
   const proof = Array.from(new Uint8Array(bytes), value => value.toString(16).padStart(2, '0')).join('')
-  connection.emit('data', { v: 2, seq: 1, type: 'join', proof, resume })
+  connection.emit('data', { v: 3, seq: 1, type: 'join', proof, resume })
   await new Promise(resolve => setTimeout(resolve, 30))
 }
 await answerChallenge(replacement, recoveryHost.resume)
@@ -168,3 +168,53 @@ assert.equal(recoveryHost.state.stage, 'reconnecting'); assert.equal(connection.
 recoveryHost.reconnectDeadline = Date.now() - 1; recoveryHost.retryConnection()
 assert.equal(recoveryHost.closed, true); assert.equal(readRoom(), null)
 console.log('PASS host network recovery, destroyed-peer replacement, ID collision retry, stable invitation, authenticated stale-connection replacement, resume liveness and bounded expiry')
+
+class FakeAudioCall {
+  constructor(peer, metadata) { this.peer = peer; this.metadata = metadata; this.handlers = new Map(); this.closed = false }
+  on(name, fn) { this.handlers.set(name, fn) }
+  emit(name, value) { this.handlers.get(name)?.(value) }
+  close() { this.closed = true; this.emit('close') }
+  answer(stream) { this.answered = true; this.answerStream = stream }
+}
+const microphoneTrack = () => ({ enabled: true, stopped: false, stop() { this.stopped = true } })
+const audioStream = track => ({ getAudioTracks: () => [track], getTracks: () => [track] })
+let requests = 0, constraints
+const track = microphoneTrack(), stream = audioStream(track)
+navigator.mediaDevices = { getUserMedia: async options => { requests++; constraints = options; return stream } }
+const micHost = new FriendsSession(null), audioCalls = []
+micHost.peer = { call: (id, sentStream, options) => { assert.equal(sentStream, stream); const call = new FakeAudioCall(id, options.metadata); audioCalls.push(call); return call }, destroy() {} }
+micHost.conn = { open: true, peer: saved.id, send() {} }
+micHost.state.connected = true
+await micHost.enableMic(); assert.equal(requests, 0, 'Identity confirmation must precede microphone permission')
+micHost.state.confirmed = true; micHost.state.remoteConfirmed = true
+await micHost.enableMic()
+assert.equal(requests, 1); assert.equal(constraints.video, false); assert.equal(constraints.audio.echoCancellation, true)
+assert.equal(audioCalls[0].metadata.kind, 'host-audio'); assert.equal(micHost.state.micEnabled, true)
+await micHost.receive({ type: 'host-audio-received' }); assert.equal(micHost.audioConnected, true)
+micHost.toggleMic(); assert.equal(track.enabled, false); assert.equal(micHost.state.micMuted, true)
+micHost.toggleMic(); assert.equal(track.enabled, true)
+micHost.suspend(); assert.equal(track.stopped, true); assert.equal(audioCalls[0].closed, true); assert.equal(micHost.state.micEnabled, false)
+micHost.hiddenAt = null
+navigator.mediaDevices.getUserMedia = async () => { const error = new Error('Denied'); error.name = 'NotAllowedError'; throw error }
+await micHost.enableMic(); assert(micHost.state.micError.includes('permission')); assert.equal(micHost.closed, false); assert.equal(micHost.state.micBusy, false)
+let grant
+const lateTrack = microphoneTrack()
+navigator.mediaDevices.getUserMedia = () => new Promise(resolve => { grant = resolve })
+const pendingMic = micHost.enableMic(); micHost.stopMic(); grant(audioStream(lateTrack)); await pendingMic
+assert.equal(lateTrack.stopped, true); assert.equal(micHost.state.micEnabled, false)
+micHost.end(undefined, false)
+const audioGuestPeer = new FakePeer('guest')
+const audioGuest = new FriendsSession({ peer: saved.id, secret: saved.secret }, { peerFactory: () => audioGuestPeer })
+audioGuest.state.cameraReady = true
+await audioGuest.start()
+audioGuest.state = { ...audioGuest.state, connected: true, confirmed: true, remoteConfirmed: true }
+audioGuest.conn = { open: true, peer: saved.id, send() {} }
+const unauthorizedAudio = new FakeAudioCall('intruder', { kind: 'host-audio' })
+audioGuestPeer.emit('call', unauthorizedAudio); assert.equal(unauthorizedAudio.closed, true)
+const hostAudio = new FakeAudioCall(saved.id, { kind: 'host-audio' })
+audioGuestPeer.emit('call', hostAudio); assert.equal(hostAudio.answered, true); assert.equal(hostAudio.answerStream, undefined, 'Guest must not send microphone audio')
+hostAudio.emit('stream', stream); assert.equal(audioGuest.state.audioRemote, stream)
+const beforeGuestRequests = requests; await audioGuest.enableMic(); assert.equal(requests, beforeGuestRequests)
+audioGuest.pauseCamera(); assert.equal(audioGuest.state.audioRemote, null); assert.equal(hostAudio.closed, true)
+audioGuest.end(undefined, false)
+console.log('PASS host-only microphone consent, mute/unmute, suspension cleanup, permission denial, late permission cancellation and authenticated one-way audio')

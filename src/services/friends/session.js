@@ -23,6 +23,8 @@ export class FriendsSession {
     this.filterRevision = 0; this.renderRequest = 0;
     this.state.photoFilter = normalizePhotoFilter(recovery?.photoFilter); this.state.filterBusy = false; this.state.remoteFilterReady = false;
     this.sequence = 0; this.disposed = false; this.closed = false; this.video = null; this.captureTimes = []; this.remoteTimes = []; this.timingDifferences = []
+    this.micGeneration = 0
+    this.state = { ...this.state, micEnabled: false, micMuted: false, micBusy: false, micError: '', hostMicEnabled: false, hostMicMuted: false, audioRemote: null }
     this.subscribe = listener => { this.listeners.add(listener); return () => this.listeners.delete(listener) }
     this.getSnapshot = () => this.state
   }
@@ -50,6 +52,7 @@ export class FriendsSession {
     this.send('camera', { value: true, mirror: this.state.mirror }); this.maybeCall()
   }
   pauseCamera(notify = true) {
+    this.stopMic(notify)
     if (notify && this.conn?.open) this.send('camera', { value: false })
     this.clear(this.mediaTimer); this.call?.close(); this.call = null
     this.state.local?.getTracks().forEach(track => { track.onended = null; track.stop() })
@@ -92,6 +95,11 @@ export class FriendsSession {
       })
       this.peer.on('connection', connection => { if (this.peer !== peer || this.closed) connection.close(); else this.attach(connection) })
       this.peer.on('call', call => {
+        if (this.closed || this.peer !== peer) { call.close(); return }
+        if (call.metadata?.kind === 'host-audio') {
+          if (this.host || !this.conn?.open || call.peer !== this.conn.peer || !this.state.confirmed || !this.state.remoteConfirmed || this.audioCall) { call.close(); return }
+          this.bindAudioCall(call); call.answer(); return
+        }
         if (this.host || !this.conn?.open || call.peer !== this.conn.peer || !this.state.confirmed || !this.state.remoteConfirmed || !this.state.cameraReady || this.call) { call.close(); return }
         this.bindCall(call); call.answer(this.state.local)
       })
@@ -183,6 +191,7 @@ export class FriendsSession {
   }
   admitted(expiresAt) {
     if (!Number.isFinite(expiresAt) || expiresAt < Date.now() || expiresAt > Date.now() + LIMITS.room + 10000) throw new Error('Invalid room lifetime')
+    this.stopMic(false)
     this.update({ connected: true, pending: false, stage: 'booth', confirmed: false, remoteConfirmed: false, expiresAt, status: 'Compare the code with your friend, then confirm before sharing video.', error: '' })
     this.clear(this.retryTimer); this.clear(this.reconnectTimer); this.clear(this.probeTimer); this.reconnectDeadline = null; this.persist()
     digest(new TextEncoder().encode([this.host ? this.id : this.invitation.peer, this.secret, this.resume].join(':'))).then(value => { if (!this.closed) this.update({ code: value.slice(0, 8).toUpperCase() }) })
@@ -199,6 +208,7 @@ export class FriendsSession {
   }
   disconnected() {
     if (this.closed || this.state.stage === 'reconnecting') return
+    this.stopMic(false)
     this.call?.close(); this.call = null; this.remoteCamera = false; this.conn = null
     this.abortWork(); this.own = []; this.other = []
     this.update({ ...emptyCapture, result: this.state.result, connected: false, remote: null, confirmed: false, remoteConfirmed: false, stage: 'reconnecting', status: 'Waiting to reconnect. Return within 5 minutes to continue.' })
@@ -256,6 +266,59 @@ export class FriendsSession {
     }
   }
   confirm() { this.update({ confirmed: true }); this.send('confirmed'); this.maybeCall() }
+  async enableMic() {
+    if (!this.host || this.closed || this.state.micBusy || this.state.micEnabled || !this.state.connected || !this.state.confirmed || !this.state.remoteConfirmed || document.hidden) return
+    const generation = ++this.micGeneration
+    this.update({ micBusy: true, micError: '' })
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error('Microphone access requires HTTPS or localhost.')
+      const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } })
+      if (this.closed || generation !== this.micGeneration || !this.state.connected || document.hidden) { stream.getTracks().forEach(track => track.stop()); return }
+      if (!stream.getAudioTracks().length) { stream.getTracks().forEach(track => track.stop()); throw new Error('No microphone track is available.') }
+      this.micStream = stream
+      stream.getAudioTracks().forEach(track => { track.onended = () => this.stopMic() })
+      this.update({ micEnabled: true, micMuted: false })
+      const call = this.peer.call(this.conn.peer, stream, { metadata: { kind: 'host-audio' } })
+      if (!call) throw new Error('Audio connection could not start. Retry the microphone.')
+      this.bindAudioCall(call); this.sendMicStatus()
+    } catch (error) {
+      if (generation === this.micGeneration && !this.closed) {
+        this.stopMic(); this.update({ micError: error.name === 'NotAllowedError' ? 'Microphone permission was denied. Allow it in browser settings, then retry.' : error.message || 'Microphone could not start.' })
+      }
+    } finally { if (generation === this.micGeneration) this.update({ micBusy: false }) }
+  }
+  sendMicStatus() { this.send('host-mic', { enabled: this.state.micEnabled, muted: this.state.micMuted }) }
+  toggleMic() {
+    if (!this.host || !this.micStream || this.closed) return
+    const muted = !this.state.micMuted
+    this.micStream.getAudioTracks().forEach(track => { track.enabled = !muted })
+    this.update({ micMuted: muted }); this.sendMicStatus()
+  }
+  stopMic(notify = true) {
+    this.micGeneration++; this.clear(this.audioTimer)
+    const call = this.audioCall; this.audioCall = null
+    this.micStream?.getTracks().forEach(track => { track.onended = null; track.stop() }); this.micStream = null
+    call?.close()
+    this.update({ micEnabled: false, micMuted: false, micBusy: false, hostMicEnabled: false, hostMicMuted: false, audioRemote: null })
+    if (notify && this.host) this.sendMicStatus()
+  }
+  bindAudioCall(call) {
+    this.audioCall = call
+    this.clear(this.audioTimer)
+    this.audioTimer = this.later(() => {
+      if (this.audioCall === call && !this.audioConnected) { this.stopMic(); this.update({ micError: 'Audio connection timed out. Retry the microphone.' }) }
+    }, 20000)
+    this.audioConnected = false
+    call.on('stream', stream => {
+      if (this.audioCall !== call || this.closed || this.host) return
+      if (!stream.getAudioTracks().length) { this.stopMic(false); return }
+      this.audioConnected = true; this.clear(this.audioTimer)
+      this.update({ audioRemote: stream, micError: '' }); this.send('host-audio-received')
+    })
+    const closed = () => { if (this.audioCall === call) this.stopMic(false) }
+    call.on('close', closed)
+    call.on('error', () => { if (this.audioCall === call) { this.stopMic(); this.update({ micError: 'Audio connection failed. Retry the microphone.' }) } })
+  }
   maybeCall() {
     if (!this.host || !this.state.connected || !this.state.confirmed || !this.state.remoteConfirmed || !this.state.cameraReady || !this.remoteCamera || this.call) return
     this.bindCall(this.peer.call(this.conn.peer, this.state.local))
@@ -411,6 +474,8 @@ export class FriendsSession {
   async receive(message) {
     if (this.state.expiresAt && Date.now() >= this.state.expiresAt) { this.end('This room has expired.'); return }
     const { type } = message
+    if (type === 'host-mic' && !this.host && typeof message.enabled === 'boolean' && typeof message.muted === 'boolean') { this.update({ hostMicEnabled: message.enabled, hostMicMuted: message.muted }); if (!message.enabled) this.stopMic(false); return }
+    if (type === 'host-audio-received' && this.host && this.audioCall) { this.audioConnected = true; this.clear(this.audioTimer); return }
     if (type === 'resume-probe' && /^[a-f0-9]{48}$/.test(message.id)) { this.send('resume-ack', { id: message.id }); return }
     if (type === 'resume-ack' && message.id === this.probe) { this.probe = null; this.lastHeartbeat = Date.now(); this.clear(this.probeTimer); return }
     if (type === 'result-confirmed' && !this.host && this.state.stage === 'result') { this.pauseCamera(); return }
@@ -479,6 +544,7 @@ export class FriendsSession {
   end(reason = 'Room ended.', notify = true) {
     if (this.closed) return
     if (notify) this.send('end')
+    this.stopMic(false)
     clearRoom(); this.closed = true; this.abortWork(); this.timers.forEach(clearTimeout); this.timers.clear()
     this.call?.close(); this.connections.forEach(connection => connection.close()); this.connections.clear(); this.peer?.destroy()
     this.state.local?.getTracks().forEach(track => { track.onended = null; track.stop() })

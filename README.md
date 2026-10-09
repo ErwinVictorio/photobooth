@@ -6,6 +6,8 @@ A React/Vite photobooth for an iPad kiosk, based on the botanical storyboard in 
 
 Choose **Photo with a friend** and **Create room**. Copy and share the invitation first, then enable your camera and admit your friend, compare the confirmation code in your existing chat, and both confirm camera sharing. Both press Ready; the host starts three photos. Approve together, then download or explicitly save the shared strip to your local gallery.
 
+For voice guidance, the host can choose **Enable mic** after both identity confirmations, then mute/unmute or turn it off. The guest listens without sharing a microphone; tap **Listen to host** if the browser blocks playback. Audio is live only and stops when pausing the camera, switching apps, disconnecting, or leaving. No audio is recorded or saved.
+
 The website still builds as a static Vercel app. There are no paid API keys or TURN subscriptions. Direct connections may fail on restrictive networks; try another network. Keep the host page open. See [Friends implementation and deployment notes](Docs/FRIENDS_IMPLEMENTATION_STATUS.md) for checks, commands, and remaining real-device gates. Set `VITE_FRIENDS_ENABLED=false` and rebuild to disable the beta.
 
 ## Run locally

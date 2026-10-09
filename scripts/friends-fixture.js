@@ -15,6 +15,11 @@ window.startFixture = async (link, port) => {
     document.querySelector('#status').textContent = JSON.stringify({ ...session.state, local: !!session.state.local, remote: !!session.state.remote, preview: !!session.state.preview, result: !!session.state.result })
   })
   video.onloadeddata = () => session.cameraLoaded(video)
+  if (!link) {
+    await session.start()
+    await new Promise((resolve, reject) => { const until = Date.now() + 25000; const poll = () => session.state.invite ? resolve() : Date.now() > until ? reject(new Error('Invitation before camera timeout')) : setTimeout(poll, 20); poll() })
+    if (session.state.local) throw new Error('Room creation must not request a camera')
+  }
   await session.camera()
   await new Promise((resolve, reject) => { const until = Date.now() + 10000; const poll = () => session.state.cameraReady ? resolve() : Date.now() > until ? reject(new Error('Camera timeout')) : setTimeout(poll, 20); poll() })
   await session.start()

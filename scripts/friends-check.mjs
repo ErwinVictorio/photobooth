@@ -168,8 +168,6 @@ try {
     await ui.send('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 })
     await ui.evaluate('Array.from(document.querySelectorAll("button")).find(b=>b.textContent==="Photo with a friend").click()')
     await eventually(() => ui.evaluate('document.body.innerText.includes("Enable camera")'), 'offline entry')
-    await ui.evaluate('Array.from(document.querySelectorAll("button")).find(b=>b.textContent==="Enable camera").click()')
-    await eventually(() => ui.evaluate('Array.from(document.querySelectorAll("button")).some(b=>b.textContent==="Create room" && !b.disabled)'), 'offline camera')
     await ui.evaluate('Array.from(document.querySelectorAll("button")).find(b=>b.textContent==="Create room").click()')
     await eventually(() => ui.evaluate('document.body.innerText.includes("You are offline")'), 'offline error')
     await ui.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 })

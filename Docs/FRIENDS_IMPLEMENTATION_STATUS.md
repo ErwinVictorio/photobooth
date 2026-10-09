@@ -9,7 +9,7 @@ Status: Implemented as a free, two-person beta. Production build is ready for th
 - Welcome entry: **Photo with a friend**. Existing local booth remains available.
 - Invitation fragment contains a random host peer ID and separate secret; it is removed from the guest address bar after entry.
 - PeerJS public signaling with explicit STUN-only configuration. No paid TURN defaults, provider keys, custom application backend, or cloud database.
-- Camera preparation before Create/Join, microphone disabled, front/rear selection, mirror-consistent previews and stills.
+- Host can create and copy the invitation before enabling a camera. Guest camera preparation remains required before Join. Microphone disabled; front/rear selection and mirror-consistent previews/stills.
 - Challenge-response invitation validation; host admission; one guest slot; extra participants rejected.
 - Matching confirmation code, confirmed by both people through their existing chat before media sharing.
 - Host-selected Botanical, Rose, and Film paired frames.
@@ -51,7 +51,7 @@ npm ci
 npm run dev
 ```
 
-Open the displayed localhost URL, select Photo with a friend, enable the camera, and create a room. Send its invitation to a second browser on the same computer for a quick local check. A localhost invitation cannot connect a friend on another device to your website; use the HTTPS Vercel URL for that.
+Open the displayed localhost URL, select Photo with a friend and create a room. Copy the invitation, then enable the camera. Send its invitation to a second browser on the same computer for a quick local check. A localhost invitation cannot connect a friend on another device to your website; use the HTTPS Vercel URL for that.
 
 For reproducible tests:
 

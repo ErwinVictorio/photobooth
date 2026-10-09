@@ -48,7 +48,7 @@ export class FriendsSession {
     if (activeCapture(this.state) || this.state.stage === 'review') this.requestReset('Camera paused. Enable both cameras and get ready again.')
   }
   async start() {
-    if (this.peer || this.closed || !this.state.cameraReady) return
+    if (this.peer || this.closed || (!this.host && !this.state.cameraReady)) return
     if (!navigator.onLine) { this.fail('You are offline. Friends mode needs internet.'); return }
     this.secret = this.invitation?.secret || randomId()
     this.id = `gm-${randomId()}`

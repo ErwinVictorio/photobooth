@@ -96,3 +96,75 @@ await guest.receive({ type: 'filter-update', generation: 0, revision: 1, filter:
 await host.receive({ type: 'filter-update', generation: 0, revision: 9, filter: filter('sepia') }); assert.equal(host.filterRevision, 1)
 host.abortWork(); guest.abortWork(); host.end(undefined, false); guest.end(undefined, false)
 console.log('PASS host authority, preserved captures, approval invalidation, render gating and stale revision rejection')
+
+// Exercise transport lifecycle without camera hardware or the public broker.
+Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { onLine: true } })
+globalThis.document = { hidden: false }
+globalThis.location = { href: 'https://example.test/' }
+class FakePeer {
+  constructor(id) { this.id = id; this.handlers = new Map(); this.destroyed = false; this.disconnected = false; this.reconnects = 0 }
+  on(name, fn) { this.handlers.set(name, fn) }
+  emit(name, value) { this.handlers.get(name)?.(value) }
+  removeAllListeners() { this.handlers.clear() }
+  destroy() { this.destroyed = true }
+  reconnect() { this.reconnects++; this.disconnected = false; this.emit('open') }
+}
+const peers = [], recoveryHost = new FriendsSession(null, { peerFactory: id => { const peer = new FakePeer(id); peers.push(peer); return peer } })
+const scheduled = new Map()
+let timerId = 0
+recoveryHost.later = (fn, ms) => { const id = ++timerId; scheduled.set(id, { fn, ms }); return id }
+recoveryHost.clear = id => scheduled.delete(id)
+await recoveryHost.start()
+assert.equal(readRoom().id, recoveryHost.id, 'Save credentials before broker registration')
+peers[0].emit('open')
+const originalInvite = recoveryHost.state.invite, originalId = recoveryHost.id, originalSecret = recoveryHost.secret
+peers[0].disconnected = true; peers[0].emit('error', { type: 'network' })
+assert.equal(recoveryHost.closed, false); assert.equal(recoveryHost.state.stage, 'reconnecting'); assert(readRoom())
+const deadline = recoveryHost.reconnectDeadline
+recoveryHost.recoverTransport('socket-error'); assert.equal(recoveryHost.reconnectDeadline, deadline, 'Retries cannot extend grace indefinitely')
+recoveryHost.retryConnection()
+assert.equal(peers[0].reconnects, 1); assert.equal(recoveryHost.state.stage, 'waiting'); assert.equal(recoveryHost.state.invite, originalInvite)
+peers[0].destroyed = true
+recoveryHost.resumePage()
+assert.equal(peers.length, 2); assert.equal(peers[1].id, originalId); assert.equal(recoveryHost.secret, originalSecret)
+peers[1].emit('open'); assert.equal(recoveryHost.state.invite, originalInvite)
+peers[1].emit('error', { type: 'unavailable-id' }); assert.equal(recoveryHost.closed, false)
+recoveryHost.retryConnection(); assert.equal(peers.length, 3); assert.equal(peers[2].id, originalId)
+peers[2].emit('open')
+recoveryHost.suspend(); recoveryHost.resumePage()
+assert.equal(recoveryHost.closed, false); assert.equal(peers.length, 4, 'Waiting host re-registers after leaving the screen')
+peers[3].emit('open'); assert.equal(recoveryHost.state.invite, originalInvite)
+class FakeConnection {
+  constructor() { this.peer = `gm-${'c'.repeat(48)}`; this.open = true; this.handlers = new Map(); this.messages = [] }
+  on(name, fn) { this.handlers.set(name, fn) }
+  emit(name, value) { this.handlers.get(name)?.(value) }
+  send(message) { this.messages.push(message) }
+  close() { this.open = false; this.emit('close') }
+}
+const stale = new FakeConnection()
+recoveryHost.conn = stale; recoveryHost.resume = 'd'.repeat(48); recoveryHost.state.connected = true
+const replacement = new FakeConnection()
+recoveryHost.attach(replacement); replacement.emit('open')
+async function answerChallenge(connection, resume) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(recoveryHost.secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const bytes = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(connection.messages.find(message => message.type === 'challenge').challenge))
+  const proof = Array.from(new Uint8Array(bytes), value => value.toString(16).padStart(2, '0')).join('')
+  connection.emit('data', { v: 2, seq: 1, type: 'join', proof, resume })
+  await new Promise(resolve => setTimeout(resolve, 30))
+}
+await answerChallenge(replacement, recoveryHost.resume)
+assert.equal(recoveryHost.conn, replacement); assert.equal(stale.open, false); assert.equal(recoveryHost.state.connected, true)
+const unauthorized = new FakeConnection()
+recoveryHost.attach(unauthorized); unauthorized.emit('open'); await answerChallenge(unauthorized, 'e'.repeat(48))
+assert(unauthorized.messages.some(message => message.type === 'denied')); assert.equal(recoveryHost.conn, replacement)
+recoveryHost.state.connected = true; recoveryHost.state.stage = 'booth'
+const connection = { open: true, send() {}, close() { this.open = false } }
+recoveryHost.conn = connection
+recoveryHost.resumePage(); assert(recoveryHost.probe)
+await recoveryHost.receive({ type: 'resume-ack', id: recoveryHost.probe }); assert.equal(recoveryHost.probe, null)
+recoveryHost.resumePage()
+scheduled.get(recoveryHost.probeTimer).fn()
+assert.equal(recoveryHost.state.stage, 'reconnecting'); assert.equal(connection.open, false)
+recoveryHost.reconnectDeadline = Date.now() - 1; recoveryHost.retryConnection()
+assert.equal(recoveryHost.closed, true); assert.equal(readRoom(), null)
+console.log('PASS host network recovery, destroyed-peer replacement, ID collision retry, stable invitation, authenticated stale-connection replacement, resume liveness and bounded expiry')

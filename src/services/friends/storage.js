@@ -15,6 +15,7 @@ export function readRoom() {
       clearRoom(); return null
     }
     if (room.photoFilter !== undefined && !validatePhotoFilter(room.photoFilter)) { clearRoom(); return null }
+    if (room.reconnectDeadline != null && (!Number.isFinite(room.reconnectDeadline) || room.reconnectDeadline <= Date.now() || room.reconnectDeadline > Date.now() + LIMITS.reconnect + 10000)) { clearRoom(); return null }
     return { ...room, photoFilter: normalizePhotoFilter(room.photoFilter) }
   } catch { clearRoom(); return null }
 }

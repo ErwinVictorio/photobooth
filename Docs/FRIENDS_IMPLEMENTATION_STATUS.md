@@ -1,6 +1,6 @@
 # Two-person Friends mode — implementation and verification
 
-Updated: October 9, 2026
+Updated: October 10, 2026
 
 Status: Implemented as a free, two-person beta. Production build is ready for the existing Vercel project. No public deployment was performed. Actual iPhone/iPad and separate-network acceptance remains open.
 
@@ -20,13 +20,23 @@ Status: Implemented as a free, two-person beta. Production build is ready for th
 - One 1200 × 2000 final JPEG delivered identically to both devices.
 - Download, supported native sharing, and explicit local-gallery save. Gallery originals are empty for Friends records; only the final image and thumbnail are saved.
 - Cameras stop after successful final delivery. Enable them again after Take another session.
-- Reconnect token and 60-second grace while the same host remains open. Both reconfirm identity and readiness after reconnecting.
+- Reconnect token and five-minute grace with local room recovery. Both reconfirm identity and readiness after reconnecting.
 - Ten-minute waiting expiry, one-hour admitted room lifetime, heartbeat monitoring, transfer timeouts, and host-end cleanup.
 - Leave confirmation, offline entry feedback, invalid-link feedback, and retained completed result after disconnect/end.
 - Lazy-loaded Friends bundle included in the existing offline app-shell cache. Networking itself still requires internet.
 - Build flag `VITE_FRIENDS_ENABLED=false` to disable Friends entry and invitation routing.
 
 ## Verification
+
+### Latest host-recovery correction
+
+The earlier localStorage fix still ended host sessions on recoverable PeerJS errors and never rebuilt a destroyed Peer. Host and guest now retry recoverable signaling/network errors. Destroyed transports and temporary ID collisions recreate/retry the original ID and secret; waiting hosts re-register after app switching. A resume probe checks data-channel liveness instead of trusting `connection.open` after Safari resumes. Only a valid challenge proof and matching resume token can replace a stale occupied connection.
+
+Credentials are saved before registration, repeated retries do not extend the recovery deadline, and reopening the same guest invitation uses its saved resume credentials. Room expiry and explicit Leave still end/clear the room. Cameras remain paused until users enable them again. Unsaved interrupted captures still reset.
+
+Current correction checks: `npm.cmd run test:filters` passes simulated host network loss, destroyed Peer replacement, ID collision, stable invitation, authenticated stale-connection replacement, rejection of another resume token, liveness acknowledgments/timeouts, and bounded recovery expiry. Lint and production build pass. These simulated transports do not establish actual iPhone or public-broker reliability; the browser debugger was unavailable in this environment. The integration results below are historical, before this correction.
+
+Deploy this correction and reopen both clients on the updated build before testing. On iPhone, use the same Safari tab/origin for the host, switch to Messenger and back within five minutes, and verify the original invitation remains usable. Test both a waiting host and an already-admitted room. A Messenger in-app browser does not share Safari's local room credentials.
 
 Tests use generated camera video, isolated browser profiles, and no real webcam images.
 

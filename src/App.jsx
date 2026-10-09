@@ -21,7 +21,11 @@ const Friends = lazy(() => import('./pages/Friends'))
 const friendsEnabled = import.meta.env.VITE_FRIENDS_ENABLED !== 'false'
 function initialFriendsEntry() {
   if (!friendsEnabled) return null
-  try { const invitation = readInvitation(location.hash); const recovery = invitation ? null : readRoom(); return invitation ? { invitation } : recovery ? { recovery } : null }
+  try {
+    const invitation = readInvitation(location.hash), saved = readRoom()
+    const recovery = !invitation || (!saved?.host && saved?.invitation?.peer === invitation.peer && saved?.invitation?.secret === invitation.secret) ? saved : null
+    return recovery ? { recovery } : invitation ? { invitation } : null
+  }
   catch (error) { return { error: error.message } }
 }
 

@@ -1,6 +1,12 @@
 # Good Moments Photobooth
 
-A React/Vite photobooth for an iPad kiosk, based on the botanical storyboard in `Docs/`. Capture, compose, and keep photos on the current device. No backend, accounts, or photo uploads.
+A React/Vite photobooth for an iPad kiosk, based on the botanical storyboard in `Docs/`. Local booth mode captures, composes, and keeps photos on the current device. Optional Friends mode shares live camera and photos directly with one invited friend using free PeerJS signaling and WebRTC. No application backend, accounts, or cloud photo storage.
+
+## Photo with a friend
+
+Choose **Photo with a friend**, enable your camera, and create a room. Share the invitation, admit your friend, compare the confirmation code in your existing chat, and both confirm camera sharing. Both press Ready; the host starts three photos. Approve together, then download or explicitly save the shared strip to your local gallery.
+
+The website still builds as a static Vercel app. There are no paid API keys or TURN subscriptions. Direct connections may fail on restrictive networks; try another network. Keep the host page open. See [Friends implementation and deployment notes](Docs/FRIENDS_IMPLEMENTATION_STATUS.md) for checks, commands, and remaining real-device gates. Set `VITE_FRIENDS_ENABLED=false` and rebuild to disable the beta.
 
 ## Run locally
 

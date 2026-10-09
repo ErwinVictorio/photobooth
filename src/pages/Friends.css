@@ -1,0 +1,22 @@
+.friends-page { max-width: 980px; margin: auto; padding: 0 24px 36px; }
+.friends-page .screen-heading { margin-bottom: 20px; }
+.friend-status { text-align: center; padding: 16px; background: #e8edde; border-radius: 16px; margin-bottom: 20px; }
+.friend-status small { display: block; margin-top: 8px; }
+.friend-panel { padding: 24px; border: 1px solid #deded3; border-radius: 20px; background: #fffdf8; margin: 20px auto; text-align: center; }
+.friend-panel h2 { margin-top: 0; }
+.friend-panel input { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #a5ad9c; box-sizing: border-box; }
+.friend-panel fieldset { border: 0; padding: 0; }
+.friend-panel .actions, .friends-page > .actions { flex-wrap: wrap; gap: 12px; justify-content: center; }
+.friend-cameras { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; position: relative; padding: 18px; border-radius: 20px; background: #e4e9dc; }
+.friend-cameras.theme-rose { background: #f6dce5; }
+.friend-cameras.theme-film { background: #262724; }
+.friend-video { position: relative; aspect-ratio: 4 / 5; min-width: 0; background: #30382e; border-radius: 12px; overflow: hidden; }
+.friend-video video { width: 100%; height: 100%; object-fit: cover; }
+.friend-placeholder { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 14px; padding: 12px; text-align: center; }
+.friend-label { position: absolute; bottom: 12px; left: 12px; border-radius: 8px; padding: 6px 10px; background: #172116df; color: white; font-size: 13px; }
+.friend-countdown { position: absolute; inset: 0; display: grid; place-items: center; font-size: 110px; font-weight: bold; color: white; text-shadow: 0 2px 20px #000; background: #0002; pointer-events: none; }
+.friend-code { display: block; font-size: 32px; letter-spacing: 6px; margin: 20px 0; font-family: monospace; }
+.friend-photo { display: block; width: min(100%, 360px); margin: auto; box-shadow: 0 12px 28px #24321e24; }
+.friend-footer { text-align: center; line-height: 1.8; margin-top: 28px; }
+.friends-entry { margin: 14px auto 0; }
+@media (max-width: 600px) { .friends-page { padding: 0 12px 24px; } .friend-panel { padding: 18px 12px; } .friend-cameras { gap: 8px; padding: 10px; } .friend-label { font-size: 11px; left: 5px; bottom: 5px; padding: 5px; } .friends-shell .site-header { gap: 8px; padding: 16px; } }

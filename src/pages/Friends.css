@@ -19,4 +19,14 @@
 .friend-photo { display: block; width: min(100%, 360px); margin: auto; box-shadow: 0 12px 28px #24321e24; }
 .friend-footer { text-align: center; line-height: 1.8; margin-top: 28px; }
 .friends-entry { margin: 14px auto 0; }
+.friends-guide { margin: 0 0 20px; border: 1px solid #a5ad9c; border-radius: 16px; background: #fffdf8; color: #303b2e; }
+.friends-guide summary { padding: 18px 20px; cursor: pointer; font-weight: 700; min-height: 48px; box-sizing: border-box; }
+.friends-guide summary span { display: block; margin: 6px 0 0 18px; font-size: 13px; font-weight: 400; }
+.friends-guide summary:focus-visible { outline: 3px solid #6f8062; outline-offset: 3px; border-radius: 16px; }
+.friends-guide-body { padding: 0 20px 20px; line-height: 1.65; }
+.friends-guide-body ol { padding-left: 24px; }
+.friends-guide-body li { padding-left: 6px; margin: 18px 0; }
+.friends-guide-body li::marker { color: #3f5140; font-weight: 700; }
+.friends-guide-body p { margin: 8px 0; }
+.friends-guide-tips { padding: 16px; background: #e8edde; border-radius: 12px; font-size: 14px; }
 @media (max-width: 600px) { .friends-page { padding: 0 12px 24px; } .friend-panel { padding: 18px 12px; } .friend-cameras { gap: 8px; padding: 10px; } .friend-label { font-size: 11px; left: 5px; bottom: 5px; padding: 5px; } .friends-shell .site-header { gap: 8px; padding: 16px; } }

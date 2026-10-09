@@ -7,6 +7,23 @@ import { canShare, downloadPhoto, sharePhoto } from '../services/share'
 import Dialog from '../components/Dialog'
 import './Friends.css'
 
+function FriendsGuide() {
+  return <details className="friends-guide" lang="fil">
+    <summary>Paano gamitin? <span>Simple guide para sa inyong dalawa</span></summary>
+    <div className="friends-guide-body">
+      <p>Ikaw ang <strong>host</strong> kapag ikaw ang gumawa ng room. Isang friend lang ang puwedeng sumali.</p>
+      <ol>
+        <li><strong>Gumawa at i-share ang link.</strong><p>Host: pindutin ang <b>Create room</b>. Kapag lumabas ang link, pindutin ang <b>Copy invitation</b> at i-send sa friend mo sa chat. Hindi pa kailangan ng camera sa step na ito.</p></li>
+        <li><strong>Sumali at buksan ang cameras.</strong><p>Friend: buksan ang link → <b>Enable camera</b> → <b>Allow</b> → <b>Join room</b>.<br/>Host: pindutin din ang <b>Enable camera</b> at <b>Allow</b>, tapos <b>Admit friend</b> kapag may join request.</p></li>
+        <li><strong>I-confirm na kayo ang magkausap.</strong><p>Ihambing sa chat ang code sa inyong screens. Kapag pareho, parehong pindutin ang <b>Code matches — share camera</b>.</p></li>
+        <li><strong>Ready, pose, smile!</strong><p>Host ang pipili ng frame. Parehong pindutin ang <b>I am ready</b>, tapos host ang pipindot ng <b>Take 3 photos</b>. Mag-pose sa bawat countdown!</p></li>
+        <li><strong>Piliin at i-save ang memory.</strong><p>Kung gusto ninyo ang pictures, parehong pindutin ang <b>Approve photos</b>, tapos kanya-kanyang <b>Download photo</b>. Gusto ulitin? Pindutin ang <b>Retake all photos</b> bago mag-approve.</p></li>
+      </ol>
+      <div className="friends-guide-tips"><strong>Para tuloy-tuloy ang session</strong><p>Panatilihing bukas ang page. Pagbalik mula sa chat, pindutin ulit ang <b>Enable camera</b> kung naka-pause ito. Kapag isinara o ni-refresh ng host ang page, kailangan ng bagong room at link.</p><p>Hindi makakonekta? Subukan ang ibang Wi-Fi o mobile data. Kung magkaibang device kayo, gamitin ang online app link; hindi ang link na may <b>localhost</b>.</p><p>Ang <b>Save to local gallery</b> ay sa browser ng device mo lang. Mag-<b>Download photo</b> para may sarili kang file bago umalis.</p></div>
+    </div>
+  </details>
+}
+
 function Video({ stream, mirror, label, onReady }) {
   const ref = useRef(null)
   useEffect(() => {
@@ -63,6 +80,7 @@ function Room({ invitation, onLeave, onRestart }) {
     <header className="site-header"><strong>good moments <span className="small-note">/ with a friend</span></strong><button className="button secondary" onClick={() => setLeaving(true)}>Leave room</button></header>
     <main className="friends-page">
       <div className="screen-heading"><span className="eyebrow">TWO FRIENDS. ONE MEMORY.</span><h1>Together, anywhere.</h1><p>Three poses, one shared photo strip.</p></div>
+      <FriendsGuide/>
       <div className="friend-status" role="status">{state.status || (invitation ? 'Enable your camera, then join your friend.' : 'Create a room first, then copy the invitation for your friend.')}{state.expiresAt && state.stage !== 'ended' && <small>Room ends by {new Date(state.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Keep this page open.</small>}</div>
       {state.error && <p className="notice error" role="alert">{state.error}</p>}
       {notice && <p className="notice" role="status">{notice}</p>}

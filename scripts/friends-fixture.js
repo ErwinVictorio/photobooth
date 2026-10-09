@@ -1,12 +1,14 @@
 import Peer from 'peerjs'
+import { readRoom } from '../src/services/friends/storage'
 import { FriendsSession } from '../src/services/friends/session'
 import { readInvitation, digest, proof, validEnvelope, validFile, captureOffset, ICE_CONFIG } from '../src/services/friends/protocol'
 
 // This entry is bundled only into ignored test artifacts, never the production app.
-window.startFixture = async (link, port) => {
+window.startFixture = async (link, port, recover = false) => {
   const session = new FriendsSession(link ? readInvitation(new URL(link).hash) : null, port ? {
     peerFactory: (id, options) => new Peer(id, { ...options, host: '127.0.0.1', port, path: '/', secure: false, config: { iceServers: [] } }),
-  } : {})
+    recovery: recover ? readRoom() : null,
+  } : { recovery: recover ? readRoom() : null })
   window.session = session
   const video = document.createElement('video'); video.muted = true; video.autoplay = true; video.playsInline = true; document.body.append(video)
   let local = null

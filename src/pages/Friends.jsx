@@ -19,7 +19,7 @@ function FriendsGuide() {
         <li><strong>Ready, pose, smile!</strong><p>Host ang pipili ng frame. Parehong pindutin ang <b>I am ready</b>, tapos host ang pipindot ng <b>Take 3 photos</b>. Mag-pose sa bawat countdown!</p></li>
         <li><strong>Piliin at i-save ang memory.</strong><p>Kung gusto ninyo ang pictures, parehong pindutin ang <b>Approve photos</b>, tapos kanya-kanyang <b>Download photo</b>. Gusto ulitin? Pindutin ang <b>Retake all photos</b> bago mag-approve.</p></li>
       </ol>
-      <div className="friends-guide-tips"><strong>Para tuloy-tuloy ang session</strong><p>Panatilihing bukas ang page. Pagbalik mula sa chat, pindutin ulit ang <b>Enable camera</b> kung naka-pause ito. Kapag isinara o ni-refresh ng host ang page, kailangan ng bagong room at link.</p><p>Hindi makakonekta? Subukan ang ibang Wi-Fi o mobile data. Kung magkaibang device kayo, gamitin ang online app link; hindi ang link na may <b>localhost</b>.</p><p>Ang <b>Save to local gallery</b> ay sa browser ng device mo lang. Mag-<b>Download photo</b> para may sarili kang file bago umalis.</p></div>
+      <div className="friends-guide-tips"><strong>Para tuloy-tuloy ang session</strong><p>Panatilihing bukas ang page. Pagbalik mula sa chat, pindutin ulit ang <b>Enable camera</b> kung naka-pause ito. Bumalik sa parehong browser sa loob ng 5 minutes para ma-restore ang room. I-enable at i-confirm ulit ang camera pagkatapos mag-reconnect.</p><p>Hindi makakonekta? Subukan ang ibang Wi-Fi o mobile data. Kung magkaibang device kayo, gamitin ang online app link; hindi ang link na may <b>localhost</b>.</p><p>Ang <b>Save to local gallery</b> ay sa browser ng device mo lang. Mag-<b>Download photo</b> para may sarili kang file bago umalis.</p></div>
     </div>
   </details>
 }
@@ -40,24 +40,28 @@ function Photo({ blob }) {
   return <img ref={ref} className="friend-photo" alt="Three paired photos, host on the left and friend on the right"/>
 }
 
-function Room({ invitation, onLeave, onRestart }) {
-  const [session] = useState(() => new FriendsSession(invitation))
+function Room({ invitation, recovery, onLeave, onRestart }) {
+  const [session] = useState(() => new FriendsSession(invitation, { recovery }))
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot)
   const [leaving, setLeaving] = useState(false), [savedBlob, setSavedBlob] = useState(null), [saving, setSaving] = useState(false), [notice, setNotice] = useState('')
   const cleanup = useRef(null), saveLock = useRef(false), resultRecord = useRef(null)
   useEffect(() => {
     clearTimeout(cleanup.current)
     if (location.hash.startsWith('#friend=')) history.replaceState(null, '', location.pathname + location.search)
-    const visibility = () => { if (document.hidden) session.pauseCamera() }
+    const visibility = () => { if (document.hidden) session.suspend(); else session.resumePage() }
     const unload = event => { if (session.state.stage !== 'setup' && session.state.stage !== 'ended') { event.preventDefault(); event.returnValue = '' } }
-    const pagehide = () => session.end('Page closed. Create a new room to continue.')
+    const pagehide = () => session.suspend()
+    const resume = () => session.resumePage()
+    window.addEventListener('pageshow', resume); window.addEventListener('online', resume)
+    if (recovery) session.start()
     document.addEventListener('visibilitychange', visibility); window.addEventListener('beforeunload', unload); window.addEventListener('pagehide', pagehide)
     return () => {
       document.removeEventListener('visibilitychange', visibility); window.removeEventListener('beforeunload', unload); window.removeEventListener('pagehide', pagehide)
+      window.removeEventListener('pageshow', resume); window.removeEventListener('online', resume)
       // React StrictMode immediately remounts effects; defer disposal until a real unmount.
       cleanup.current = setTimeout(() => session.dispose(), 0)
     }
-  }, [session])
+  }, [session, recovery])
   const result = state.result && { finalPhoto: state.result, filename: 'Good_Moments_Friends.jpg', eventName: 'Photobooth with Friends' }
   async function save() {
     if (!result || saveLock.current) return
@@ -81,7 +85,7 @@ function Room({ invitation, onLeave, onRestart }) {
     <main className="friends-page">
       <div className="screen-heading"><span className="eyebrow">TWO FRIENDS. ONE MEMORY.</span><h1>Together, anywhere.</h1><p>Three poses, one shared photo strip.</p></div>
       <FriendsGuide/>
-      <div className="friend-status" role="status">{state.status || (invitation ? 'Enable your camera, then join your friend.' : 'Create a room first, then copy the invitation for your friend.')}{state.expiresAt && state.stage !== 'ended' && <small>Room ends by {new Date(state.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Keep this page open.</small>}</div>
+      <div className="friend-status" role="status">{state.status || (invitation ? 'Enable your camera, then join your friend.' : 'Create a room first, then copy the invitation for your friend.')}{state.expiresAt && state.stage !== 'ended' && <small>Room ends by {new Date(state.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Return within 5 minutes if you switch apps.</small>}</div>
       {state.error && <p className="notice error" role="alert">{state.error}</p>}
       {notice && <p className="notice" role="status">{notice}</p>}
       {state.stage === 'setup' && <div className="friend-panel"><h2>{invitation ? 'Join your friend' : 'Invite one friend'}</h2>{!invitation && <p><strong>Create room → Copy invitation → Enable camera</strong></p>}<p>Your live camera and captured photos will be shared with the person you admit. Either person can save them. No microphone is used.</p><p className="small-note">Free direct connections need internet and may not work on every Wi-Fi or mobile network. No paid fallback is used.</p></div>}
@@ -101,7 +105,7 @@ function Room({ invitation, onLeave, onRestart }) {
       {['syncing', 'countdown', 'transferring', 'composing'].includes(state.stage) && <div className="actions"><button className="button secondary" onClick={() => session.requestReset('Capture cancelled. Get ready to try again.')}>Cancel capture</button></div>}
       {state.stage === 'review' && state.preview && <div className="friend-panel"><Photo blob={state.preview}/><p>{state.approved ? 'You approved these photos.' : 'Happy with your photos?'} {state.remoteApproved ? 'Your friend approved.' : 'Waiting for your friend’s approval.'}</p><div className="actions"><button className="button secondary" onClick={() => session.requestReset()}>Retake all photos</button><button className="button" disabled={state.approved} onClick={() => session.approve()}>Approve photos</button></div></div>}
       {result && <div className="friend-panel"><Photo blob={result.finalPhoto}/><p>{state.received ? 'Both devices received the finished photo.' : 'This copy is ready. Your friend’s receipt is not confirmed.'}</p><div className="actions"><button className="button" onClick={() => downloadPhoto(result.finalPhoto, result.filename)}>Download photo</button>{canShare(result) && <button className="button secondary" onClick={async () => { try { await sharePhoto(result) } catch (error) { if (error.name !== 'AbortError') setNotice('Sharing failed. Download instead.') } }}>Share photo</button>}<button className="button secondary" disabled={saving || savedBlob === result.finalPhoto} onClick={save}>{savedBlob === result.finalPhoto ? 'Saved to gallery' : saving ? 'Saving…' : 'Save to local gallery'}</button></div>{state.stage === 'result' && <button className="text-button" onClick={() => session.requestReset()}>Take another session</button>}</div>}
-      {state.stage === 'reconnecting' && !session.host && <button className="button" onClick={() => session.retryConnection()}>Reconnect</button>}
+      {state.stage === 'reconnecting' && <button className="button" onClick={() => session.retryConnection()}>Reconnect</button>}
       {state.stage === 'ended' && <div className="actions"><button className="button" onClick={onRestart}>Start a new room</button><button className="button secondary" onClick={onLeave}>Return to local booth</button></div>}
       <p className="small-note friend-footer">Free two-person beta · No account · No cloud photo storage<br/>If the connection fails, try another Wi-Fi or mobile network.</p>
     </main>
@@ -112,5 +116,5 @@ function Room({ invitation, onLeave, onRestart }) {
 export default function Friends({ entry, onLeave }) {
   const [attempt, setAttempt] = useState(0)
   if (entry?.error && attempt === 0) return <div className="friend-panel"><h1>Invitation unavailable</h1><p role="alert">{entry.error}</p><button className="button" onClick={onLeave}>Return to local booth</button></div>
-  return <Room key={attempt} invitation={attempt === 0 ? entry?.invitation : null} onLeave={onLeave} onRestart={() => setAttempt(value => value + 1)}/>
+  return <Room key={attempt} recovery={attempt === 0 ? entry?.recovery : null} invitation={attempt === 0 ? entry?.invitation : null} onLeave={onLeave} onRestart={() => setAttempt(value => value + 1)}/>
 }

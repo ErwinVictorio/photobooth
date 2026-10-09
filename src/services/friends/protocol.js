@@ -1,5 +1,5 @@
 export const VERSION = 1
-export const LIMITS = { still: 2 * 1024 * 1024, result: 10 * 1024 * 1024, chunk: 12000, room: 60 * 60 * 1000, waiting: 10 * 60 * 1000, reconnect: 60000 }
+export const LIMITS = { still: 2 * 1024 * 1024, result: 10 * 1024 * 1024, chunk: 12000, room: 60 * 60 * 1000, waiting: 10 * 60 * 1000, reconnect: 5 * 60 * 1000 }
 export const THEMES = { sage: { name: 'Botanical', paper: '#f8f5ef', ink: '#3f5140' }, rose: { name: 'Rose', paper: '#fff0f3', ink: '#923f5b' }, film: { name: 'Film', paper: '#262724', ink: '#fff8e9' } }
 export const ICE_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }], iceTransportPolicy: 'all' }
 export function randomId() { return Array.from(crypto.getRandomValues(new Uint8Array(24)), n => n.toString(16).padStart(2, '0')).join('') }

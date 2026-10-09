@@ -119,6 +119,21 @@ try {
     await eventually(() => guest.evaluate('session.state.connected && session.state.stage === "booth"'), 'rejoined')
     assert.equal(await host.evaluate('session.state.confirmed'), false)
   })
+  await check('Host reload restores the same invitation and authenticated guest automatically', async () => {
+    const id = await host.evaluate('session.id');
+    const expiry = await host.evaluate('session.state.expiresAt');
+    await host.evaluate('session.suspend()');
+    assert.equal(await host.evaluate('session.closed'), false);
+    await host.send('Page.reload');
+    await eventually(() => host.evaluate('typeof startFixture === "function"'), 'reloaded fixture');
+    await host.evaluate(`startFixture(null, ${port}, true)`);
+    await eventually(() => guest.evaluate('session.state.connected'), 'automatic guest reconnect');
+    await eventually(() => host.evaluate('session.state.connected'), 'restored host connected');
+    assert.equal(await host.evaluate('session.id'), id);
+    assert.equal(await host.evaluate('session.state.invite'), invite);
+    assert.equal(await host.evaluate('session.state.expiresAt'), expiry);
+    assert.equal(await host.evaluate('session.state.confirmed'), false);
+  });
   await check('Ending room stops cameras and connections', async () => {
     await host.evaluate('window.oldTracks = session.state.local?.getTracks() || []; session.end()')
     await eventually(() => guest.evaluate('session.state.stage === "ended"'), 'guest ended')

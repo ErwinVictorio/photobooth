@@ -1,4 +1,5 @@
 import Peer from 'peerjs'
+import { clearRoom, writeRoom } from './storage'
 import { VERSION, LIMITS, THEMES, ICE_CONFIG, randomId, digest, proof, validEnvelope, validFile, captureOffset } from './protocol'
 import { captureStill, composeFriends, validatePhoto } from './photos'
 
@@ -8,11 +9,15 @@ const emptyCapture = { ready: false, remoteReady: false, approved: false, remote
 
 // The controller owns transport and timers. React only subscribes to snapshots.
 export class FriendsSession {
-  constructor(invitation, { peerFactory = (id, options) => new Peer(id, options) } = {}) {
+  constructor(invitation, { peerFactory = (id, options) => new Peer(id, options), recovery = null } = {}) {
     this.invitation = invitation; this.host = !invitation; this.factory = peerFactory
+    if (recovery) { this.invitation = recovery.invitation; this.host = recovery.host; this.id = recovery.id; this.secret = recovery.secret; this.resume = recovery.resume; this.expiresAt = recovery.expiresAt }
+    this.recovery = recovery
     this.state = { ...emptyCapture, stage: 'setup', theme: 'sage', mirror: true, local: null, remote: null, cameraReady: false, connected: false, confirmed: false, remoteConfirmed: false, error: '', status: '', invite: '', code: '', pending: false, expiresAt: null }
     this.listeners = new Set(); this.timers = new Set(); this.connections = new Set()
+    if (recovery) this.state.theme = recovery.theme
     this.generation = 0; this.own = []; this.other = []; this.acks = new Set(); this.waiters = new Map(); this.incoming = null
+    if (recovery) this.generation = recovery.generation
     this.sequence = 0; this.disposed = false; this.closed = false; this.video = null; this.captureTimes = []; this.remoteTimes = []; this.timingDifferences = []
     this.subscribe = listener => { this.listeners.add(listener); return () => this.listeners.delete(listener) }
     this.getSnapshot = () => this.state
@@ -48,11 +53,13 @@ export class FriendsSession {
     if (activeCapture(this.state) || this.state.stage === 'review') this.requestReset('Camera paused. Enable both cameras and get ready again.')
   }
   async start() {
-    if (this.peer || this.closed || (!this.host && !this.state.cameraReady)) return
+    if (this.peer || this.closed || (!this.host && !this.state.cameraReady && !this.recovery)) return
     if (!navigator.onLine) { this.fail('You are offline. Friends mode needs internet.'); return }
-    this.secret = this.invitation?.secret || randomId()
-    this.id = `gm-${randomId()}`
+    this.secret ||= this.invitation?.secret || randomId()
+    this.id ||= `gm-${randomId()}`
     this.update({ stage: 'connecting', status: 'Connecting to the free room service…', error: '' })
+    const save = () => { this.persist(); this.storageTimer = this.later(save, 10000) }
+    this.storageTimer = this.later(save, 10000)
     try {
       this.peer = this.factory(this.id, { secure: true, debug: 0, config: ICE_CONFIG })
       this.startTimer = this.later(() => this.end('The free connection service is unavailable. Try again later.'), 25000)
@@ -63,8 +70,11 @@ export class FriendsSession {
         this.registered = true
         if (this.host) {
           const url = new URL(location.href); url.hash = new URLSearchParams({ friend: this.id, key: this.secret }).toString()
-          this.update({ stage: 'waiting', invite: url.href, status: 'Waiting for your friend. Keep this page open.', expiresAt: Date.now() + LIMITS.waiting })
-          this.expiry = this.later(() => this.end('This invitation has expired. Create a new room.'), LIMITS.waiting)
+          this.expiresAt ||= Date.now() + LIMITS.waiting
+          this.update({ stage: 'waiting', invite: url.href, status: 'Waiting for your friend. Return within 5 minutes if you switch apps.', expiresAt: this.expiresAt })
+          this.expiry = this.later(() => this.end('This invitation has expired. Create a new room.'), this.expiresAt - Date.now())
+          this.persist()
+          if (this.resume) this.disconnected()
         } else this.connectGuest()
       })
       this.peer.on('connection', connection => this.attach(connection))
@@ -72,7 +82,12 @@ export class FriendsSession {
         if (this.host || !this.conn?.open || call.peer !== this.conn.peer || !this.state.confirmed || !this.state.remoteConfirmed || !this.state.cameraReady || this.call) { call.close(); return }
         this.bindCall(call); call.answer(this.state.local)
       })
-      this.peer.on('error', () => { if (!this.state.connected) this.end('Room unavailable, host offline, or this network cannot connect directly. Try a fresh invitation or another network.') })
+      this.peer.on('error', error => {
+        if (!this.closed && !this.host && ['peer-unavailable', 'network', 'server-error', 'socket-error', 'socket-closed'].includes(error.type)) {
+          this.disconnected(); this.connections.forEach(connection => connection.close()); this.scheduleRetry(); return
+        }
+        if (!this.state.connected) this.end('Room unavailable, host offline, or this network cannot connect directly. Try a fresh invitation or another network.')
+      })
       this.peer.on('disconnected', () => {
         if (!this.closed) this.update({ status: 'Room service disconnected. An existing direct session may continue; reconnecting…' })
         if (!this.closed && !this.peer.destroyed) { try { this.peer.reconnect() } catch { /* Data connection may still be usable. */ } }
@@ -124,7 +139,7 @@ export class FriendsSession {
       this.clear(timeout); this.connections.delete(connection)
       if (this.pending === connection) { this.pending = null; this.update({ pending: false }) }
       if (this.conn === connection && !this.closed) this.disconnected()
-      else if (!this.host && !this.closed && !this.state.connected && this.state.stage !== 'reconnecting') this.end('Room unavailable or the direct connection timed out. Ask for a fresh invitation or try another network.')
+      else if (!this.host && !this.closed && !this.state.connected && this.state.stage !== 'reconnecting') this.end('Admission failed or the connection timed out. Ask your friend to retry the invitation.')
     })
     connection.on('error', () => connection.close())
   }
@@ -146,6 +161,7 @@ export class FriendsSession {
   admitted(expiresAt) {
     if (!Number.isFinite(expiresAt) || expiresAt < Date.now() || expiresAt > Date.now() + LIMITS.room + 10000) throw new Error('Invalid room lifetime')
     this.update({ connected: true, pending: false, stage: 'booth', confirmed: false, remoteConfirmed: false, expiresAt, status: 'Compare the code with your friend, then confirm before sharing video.', error: '' })
+    this.clear(this.retryTimer); this.persist()
     digest(new TextEncoder().encode([this.host ? this.id : this.invitation.peer, this.secret, this.resume].join(':'))).then(value => { if (!this.closed) this.update({ code: value.slice(0, 8).toUpperCase() }) })
     this.lastHeartbeat = Date.now(); this.heartbeat()
     if (!this.host) { this.clear(this.expiry); this.expiry = this.later(() => this.end('This room has expired.'), expiresAt - Date.now()) }
@@ -154,17 +170,39 @@ export class FriendsSession {
     this.clear(this.heartbeatTimer)
     this.heartbeatTimer = this.later(() => {
       if (!this.state.connected) return
-      if (Date.now() - this.lastHeartbeat > 20000) { this.conn?.close(); return }
-      this.send('heartbeat'); this.heartbeat()
+      if (!document.hidden && Date.now() - this.lastHeartbeat > LIMITS.reconnect) { this.conn?.close(); return }
+      this.send('heartbeat'); this.persist(); this.heartbeat()
     }, 5000)
   }
   disconnected() {
+    if (this.closed || this.state.stage === 'reconnecting') return
     this.call?.close(); this.call = null; this.remoteCamera = false; this.conn = null
     this.abortWork(); this.own = []; this.other = []
-    this.update({ ...emptyCapture, result: this.state.result, connected: false, remote: null, confirmed: false, remoteConfirmed: false, stage: 'reconnecting', status: 'Connection lost. Reconnect within 60 seconds, or create a new room.' })
+    this.update({ ...emptyCapture, result: this.state.result, connected: false, remote: null, confirmed: false, remoteConfirmed: false, stage: 'reconnecting', status: 'Waiting to reconnect. Return within 5 minutes to continue.' })
     this.reconnectTimer = this.later(() => this.end('Reconnect time expired. Create a new room.'), LIMITS.reconnect)
+    this.persist(); this.scheduleRetry()
   }
-  retryConnection() { if (!this.host && this.state.stage === 'reconnecting' && ![...this.connections].some(connection => connection.open)) this.connectGuest() }
+  persist() {
+    if (this.closed || !this.id || !this.secret || !this.state.expiresAt) return
+    if (!writeRoom({ host: this.host, id: this.id, secret: this.secret, resume: this.resume || null, invitation: this.invitation || null, theme: this.state.theme, generation: this.generation, expiresAt: this.state.expiresAt })) this.update({ error: 'Browser storage is unavailable. Keep this page open to retain your room.' })
+  }
+  scheduleRetry() {
+    this.clear(this.retryTimer)
+    if (!this.host && !this.closed) this.retryTimer = this.later(() => { this.retryConnection(); if (!this.state.connected) this.scheduleRetry() }, 3000)
+  }
+  retryConnection() {
+    if (this.closed || document.hidden || !navigator.onLine) return
+    if (this.peer?.disconnected && !this.peer.destroyed) { try { this.peer.reconnect() } catch { /* Retry later. */ } }
+    if (!this.host && this.state.stage === 'reconnecting' && this.peer && !this.peer.disconnected && this.connections.size === 0) this.connectGuest()
+  }
+  suspend() { this.persist(); this.pauseCamera() }
+  resumePage() {
+    if (this.closed) return
+    if (this.state.expiresAt && Date.now() >= this.state.expiresAt) { this.end('This room has expired.'); return }
+    if (!this.peer && this.recovery) this.start()
+    this.lastHeartbeat = Date.now(); this.retryConnection()
+    if (this.state.connected) this.send('heartbeat')
+  }
   confirm() { this.update({ confirmed: true }); this.send('confirmed'); this.maybeCall() }
   maybeCall() {
     if (!this.host || !this.state.connected || !this.state.confirmed || !this.state.remoteConfirmed || !this.state.cameraReady || !this.remoteCamera || this.call) return
@@ -193,6 +231,7 @@ export class FriendsSession {
     if (!this.host) return
     this.abortWork(); this.generation++; this.own = []; this.other = []; this.acks.clear(); this.captureTimes = []; this.remoteTimes = []; this.timingDifferences = []
     this.update({ ...emptyCapture, stage: 'booth', error: reason })
+    this.persist()
     this.send('reset', { generation: this.generation, theme: this.state.theme, reason })
   }
   requestReset(reason = '') {
@@ -359,7 +398,7 @@ export class FriendsSession {
   end(reason = 'Room ended.', notify = true) {
     if (this.closed) return
     if (notify) this.send('end')
-    this.closed = true; this.abortWork(); this.timers.forEach(clearTimeout); this.timers.clear()
+    clearRoom(); this.closed = true; this.abortWork(); this.timers.forEach(clearTimeout); this.timers.clear()
     this.call?.close(); this.connections.forEach(connection => connection.close()); this.connections.clear(); this.peer?.destroy()
     this.state.local?.getTracks().forEach(track => { track.onended = null; track.stop() })
     this.own = []; this.other = []; this.secret = null; this.resume = null

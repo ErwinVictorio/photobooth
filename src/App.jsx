@@ -11,13 +11,14 @@ import { frames, layouts, readSettings, formatDate, getLayout } from './data/boo
 import { composePhoto, thumbnail } from './services/images'
 import { saveSession } from './services/db'
 import { canShare, downloadPhoto, sharePhoto } from './services/share'
+import { readRoom } from './services/friends/storage'
 import { readInvitation } from './services/friends/protocol'
 import './App.css'
 const Friends = lazy(() => import('./pages/Friends'))
 const friendsEnabled = import.meta.env.VITE_FRIENDS_ENABLED !== 'false'
 function initialFriendsEntry() {
   if (!friendsEnabled) return null
-  try { const invitation = readInvitation(location.hash); return invitation ? { invitation } : null }
+  try { const invitation = readInvitation(location.hash); const recovery = invitation ? null : readRoom(); return invitation ? { invitation } : recovery ? { recovery } : null }
   catch (error) { return { error: error.message } }
 }
 

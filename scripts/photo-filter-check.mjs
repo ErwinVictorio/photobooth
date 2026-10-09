@@ -5,7 +5,7 @@ import { build } from 'vite'
 
 await build({ configFile: false, publicDir: false, logLevel: 'silent', build: {
   outDir: 'artifacts/photo-filter-check', emptyOutDir: true,
-  lib: { entry: { filters: resolve('src/services/photo-filters.js'), session: resolve('src/services/friends/session.js'), storage: resolve('src/services/friends/storage.js') }, formats: ['es'], fileName: (_, name) => `${name}.mjs` },
+  lib: { entry: { filters: resolve('src/services/photo-filters.js'), session: resolve('src/services/friends/session.js'), storage: resolve('src/services/friends/storage.js'), overlays: resolve('src/services/photo-overlays.js') }, formats: ['es'], fileName: (_, name) => `${name}.mjs` },
 } })
 const moduleAt = name => import(pathToFileURL(resolve(`artifacts/photo-filter-check/${name}.mjs`)))
 const { transformPhotoPixels, normalizePhotoFilter, validatePhotoFilter, drawFilteredCover } = await moduleAt('filters')
@@ -35,6 +35,31 @@ let drawing
 drawFilteredCover({ drawImage: (...args) => { drawing = args } }, { width: 1600, height: 900 }, 10, 20, 300, 300, filter('original'))
 assert.deepEqual(drawing.slice(1), [350, 0, 900, 900, 10, 20, 300, 300])
 console.log('PASS preset validation, Original identity, grayscale, alpha, intensity blending, unchanged originals and cover crop')
+
+const { normalizeOverlay, drawPhotoOverlays } = await moduleAt('overlays')
+const decoration = normalizeOverlay({ id: 'text', type: 'text', text: 'Hello', x: .25, y: .75, size: .1, rotation: 90, color: '#ffffff' })
+assert.equal(normalizeOverlay({ type: 'image', src: 'https://external.example/image.png' }), null)
+const bounded = normalizeOverlay({ ...decoration, x: -4, y: 5, size: 9, rotation: 900, color: 'invalid', text: 'a'.repeat(60) })
+assert.equal(bounded.x, 0); assert.equal(bounded.y, 1); assert.equal(bounded.size, .45); assert.equal(bounded.rotation, 180); assert.equal(bounded.text.length, 40); assert.equal(bounded.color, '#ffffff')
+function drawingContext() {
+  const calls = []
+  const ctx = Object.fromEntries(['save', 'restore', 'beginPath', 'rect', 'clip', 'translate', 'rotate', 'strokeText', 'fillText', 'drawImage'].map(name => [name, (...args) => calls.push([name, ...args])]))
+  return { ctx, calls }
+}
+const first = drawingContext(), second = drawingContext()
+drawPhotoOverlays(first.ctx, [decoration], 10, 20, 400, 200)
+drawPhotoOverlays(second.ctx, [decoration], 10, 20, 800, 400)
+assert.deepEqual(first.calls.find(call => call[0] === 'translate'), ['translate', 110, 170])
+assert.deepEqual(second.calls.find(call => call[0] === 'translate'), ['translate', 210, 320])
+assert.deepEqual(first.calls.find(call => call[0] === 'rotate'), ['rotate', Math.PI / 2])
+assert.equal(first.ctx.font, 'bold 40px Arial, sans-serif'); assert.equal(second.ctx.font, 'bold 80px Arial, sans-serif')
+assert.equal(first.calls.filter(call => call[0] === 'save').length, first.calls.filter(call => call[0] === 'restore').length)
+assert.deepEqual(first.calls.find(call => call[0] === 'rect'), ['rect', 10, 20, 400, 200])
+const image = { naturalWidth: 200, naturalHeight: 100 }, imageDraw = drawingContext()
+drawPhotoOverlays(imageDraw.ctx, [{ type: 'image', id: 'image', src: 'data:image/png;base64,test', size: .2 }], 0, 0, 400, 200, new Map([['data:image/png;base64,test', image]]))
+assert.deepEqual(imageDraw.calls.find(call => call[0] === 'drawImage').slice(2), [-40, -20, 80, 40])
+assert.equal(decoration.x, .25); assert.equal(decoration.rotation, 90)
+console.log('PASS overlay validation, normalized positioning, proportional text/image sizing, clipping, rotation and immutable settings')
 
 const values = new Map()
 globalThis.localStorage = { getItem: key => values.get(key) || null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) }

@@ -48,6 +48,13 @@ window.rendererChecks = async function () {
       const before = ctx.getImageData(x, y, 1, 1).data, after = filteredCtx.getImageData(x, y, 1, 1).data
       assert(before.every((value, i) => Math.abs(value - after[i]) < 5), `${t.name}: filter changed logo or paper`)
     }
+    const overlays = photos.map(() => [{ id: 'red-image', type: 'image', src: logoCanvas.toDataURL(), x: .5, y: .5, size: .3, rotation: 0 }])
+    const decorated = await createImageBitmap(await composeTemplate({ ...args, overlays, filter: { presetId: 'classic-bw', intensity: 1, version: 1 } }))
+    filteredCtx.drawImage(decorated, 0, 0); decorated.close()
+    for (const slot of t.slots) {
+      const rgb = filteredCtx.getImageData(Math.round(slot.x + slot.width / 2), Math.round(slot.y + slot.height / 2), 1, 1).data
+      assert(rgb[0] > 200 && rgb[1] < 40 && rgb[2] < 40, `${t.name}: image overlay missing, cropped incorrectly, or filtered`)
+    }
     const standard = await createImageBitmap(await composePhoto({ ...args, layout: 'strip', settings: { ...settings, quality: 'standard' } }))
     assert(standard.width === 630 && standard.height === 1470, `${t.name}: standard dimensions`); standard.close()
     await validateTemplate(t, { ...settings, eventName: '', eventDate: '', footerCaption: '', mainMessage: '', photoCaptions: ['', '', ''], logo: '' })

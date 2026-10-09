@@ -40,7 +40,7 @@ Presets use deterministic Canvas/ImageData RGB transforms. Intensity blends tran
 
 Preset thumbnails are bounded to six small canvases for the mounted picker. Their temporary image URLs are released by the existing image loader; decoded image sources are cleared after use. Intermediate photo canvases are released after drawing. Full composition is sequential and slider changes are debounced by 150ms.
 
-Filters are post-capture controls. Live camera filters, skin retouching, stickers, and AR masks are outside this release.
+Local booth now also has live camera filters and draggable text/sticker/image decorations. See [live-stage integration](LIVE_PHOTO_STAGE_IMPLEMENTATION.md). Friends controls remain on the review screen. Skin retouching and AR masks remain outside this release.
 
 ## Verification
 

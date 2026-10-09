@@ -49,6 +49,7 @@ Welcome → layout → template (or legacy frame) → camera/countdown → previ
 - Five curated strip templates with category filters and larger previews: Classic Wedding, Minimal Clean, Film Retro, Vintage Polaroid and Colorful Fun. One shared composer renders sample and captured-photo output, including rotated Polaroid mounts.
 - Single, double and grid retain six locally drawn frame styles.
 - Front camera preview and output use the same mirror setting. New originals keep the full camera field of view at bounded resolution; final composition applies the selected slot crop.
+- Local live camera filters and draggable text, stickers, and local images are available before capture. Size/rotation controls work with touch and keyboard movement. The final strip includes the decorations while raw originals stay unchanged. See [live-stage integration](Docs/LIVE_PHOTO_STAGE_IMPLEMENTATION.md).
 - Full-session retake; camera tracks stop when leaving capture or hiding the app.
 - Preview includes Original, Classic B&W, Warm Vintage, Soft Color, Sepia, and Cool Film with adjustable intensity. Filters affect photo areas only; original captures stay unchanged.
 - Final JPEG, thumbnail, and original captures are committed together to IndexedDB only after **Use these photos**.

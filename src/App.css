@@ -97,3 +97,22 @@ dialog{max-height:calc(100vh - 32px);max-height:calc(100svh - 32px);overflow-y:a
   .screen-heading h1{font-size:29px}
   .choice-card h2{font-size:18px;overflow-wrap:anywhere}
 }
+/* Mobile actions retain touch targets and wrap labels without clipping. */
+.button,.text-button,.icon-button,.template-select,.segmented button,.template-filters button{min-width:44px;min-height:44px;max-width:100%;line-height:1.4}
+.button,.text-button{height:auto;text-align:center}
+.actions>.text-button{padding:12px;min-height:48px}
+.gallery-caption>div{min-width:0}
+.gallery-caption>.icon-button{flex-shrink:0}
+@media(max-width:600px){
+  .actions{align-items:stretch;gap:12px}
+  .actions>.button,.actions>.text-button{flex:1 1 120px;min-width:0;min-height:48px}
+  .button{padding:12px 16px;gap:8px}
+  .result-actions>.button,.operator-menu>.button{width:100%}
+  .segmented{width:100%;flex-wrap:wrap;border-radius:16px}
+  .segmented button{flex:1 1 76px;min-width:0;padding:10px 8px}
+  .template-filters button{flex:0 1 auto}
+  .template-action-bar{column-gap:12px;row-gap:12px;padding-right:max(16px,env(safe-area-inset-right,0px));padding-left:max(16px,env(safe-area-inset-left,0px))}
+  .live-sticker-actions .button{flex:0 0 48px;min-height:48px;padding:8px}
+  .live-text-entry>.button{flex:1 1 120px}
+  .live-element-settings>.button{min-width:0}
+}

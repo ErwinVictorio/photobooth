@@ -50,3 +50,9 @@
   .friends-guide-body{padding:0 14px 14px}
 }
 @media(max-height:500px) and (orientation:landscape){.friend-cameras{max-width:520px;margin:auto}.friends-page .screen-heading{margin-bottom:12px}}
+.friend-reconnect-actions{margin-top:16px;margin-bottom:20px}
+@media(max-width:600px){
+  .friend-panel>.button{width:100%;margin-top:16px}
+  .friend-panel .actions>.text-button{flex:1 1 120px;min-height:48px}
+  .friends-page>.friend-reconnect-actions>.button{flex:0 1 320px;width:100%}
+}

@@ -4,7 +4,7 @@
 .filter-option{position:relative;display:flex;flex:0 0 112px;flex-direction:column;gap:7px;padding:8px;border:2px solid transparent;border-radius:12px;background:#fffdf8;cursor:pointer;scroll-snap-align:start}
 .filter-option.selected{border-color:#67775a;background:#eaf0e3}
 .filter-option:focus-within{outline:3px solid #7f8f72;outline-offset:2px}
-.filter-option input{position:absolute;top:12px;left:12px;accent-color:#526747;width:18px;height:18px;z-index:1}
+.filter-option input{position:absolute;top:12px;left:12px;accent-color:#526747;width:18px;height:18px;min-height:18px;padding:0;z-index:1}
 .filter-option strong{font-size:.85rem}.filter-option small{font-size:.72rem;line-height:1.35;color:#5d6559}
 .filter-thumbnail{display:grid;place-items:center;border-radius:7px;overflow:hidden;aspect-ratio:4/3;width:100%;font-size:2rem;color:#526747}.filter-thumbnail canvas{width:100%;height:100%;object-fit:cover}
 .filter-intensity{margin-top:8px}.filter-intensity label{display:flex;justify-content:space-between}.filter-intensity input{width:100%;min-height:44px;accent-color:#67775a}

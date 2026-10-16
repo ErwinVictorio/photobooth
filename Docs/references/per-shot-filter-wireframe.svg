@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="850" viewBox="0 0 900 850" role="img" aria-labelledby="title desc">
+  <title id="title">Per-shot filter camera layout</title>
+  <desc id="desc">Annotated wireframe adapted from the user's cream camera UI reference. Warm is selected for photo two; photo one remains black and white.</desc>
+  <rect width="900" height="850" fill="#eae8e1"/>
+  <g font-family="Arial, sans-serif" fill="#414b40">
+    <text x="40" y="40" font-size="22" font-weight="bold">Per-shot filter capture</text>
+    <text x="40" y="66" font-size="14">Reference adaptation / planning wireframe / not the original screenshot</text>
+    <rect x="40" y="90" width="375" height="726" rx="30" fill="#f8f5ed" stroke="#d4d6cc"/>
+    <text x="62" y="127" font-size="24">‹</text><text x="227" y="125" text-anchor="middle" font-size="15" font-weight="bold">Take a Photo</text><text x="350" y="125" font-size="13">Switch</text>
+    <text x="62" y="159" font-size="13">Photo 2 of 3</text><text x="350" y="159" text-anchor="end" font-size="13">Warm</text>
+    <rect x="58" y="174" width="339" height="312" rx="22" fill="#d8c7b5"/>
+    <circle cx="227" cy="290" r="49" fill="#b6a28c"/><path d="M131 444 Q132 345 227 345 Q322 345 323 444" fill="#a3a98f"/>
+    <text x="227" y="214" text-anchor="middle" font-size="14">LIVE FILTERED PREVIEW</text>
+    <text x="227" y="467" text-anchor="middle" font-size="12">Actual crop follows the selected photo slot</text>
+    <g transform="translate(58 506)">
+      <rect width="58" height="58" rx="9" fill="#c4beb3"/><rect x="68" width="58" height="58" rx="9" fill="#cbb398" stroke="#414b40" stroke-width="3"/><rect x="136" width="58" height="58" rx="9" fill="#d8cec3"/><rect x="204" width="58" height="58" rx="9" fill="#b7ac90"/><rect x="272" width="58" height="58" rx="9" fill="#a6a6a6"/>
+      <text x="29" y="35" text-anchor="middle" font-size="12">Sample</text><text x="97" y="35" text-anchor="middle" font-size="12">✓</text><text x="165" y="35" text-anchor="middle" font-size="12">Sample</text><text x="233" y="35" text-anchor="middle" font-size="12">Sample</text><text x="301" y="35" text-anchor="middle" font-size="12">Sample</text>
+      <g font-size="11" text-anchor="middle"><text x="29" y="78">Original</text><text x="97" y="78" font-weight="bold">Warm</text><text x="165" y="78">Soft</text><text x="233" y="78">Vintage</text><text x="301" y="78">B&amp;W</text></g>
+    </g>
+    <rect x="74" y="606" width="88" height="52" rx="8" fill="#d4d4d4"/><rect x="184" y="606" width="88" height="52" rx="8" fill="#eee4d5" stroke="#687a61" stroke-width="2"/><rect x="294" y="606" width="88" height="52" rx="8" fill="#efece5" stroke="#cecfc4" stroke-dasharray="4 3"/>
+    <g font-size="12" text-anchor="middle"><text x="118" y="637">1 · B&amp;W ✓</text><text x="228" y="637">2 · Next</text><text x="338" y="637">3 · Empty</text></g>
+    <circle cx="227" cy="715" r="38" fill="none" stroke="#687a61" stroke-width="2"/><circle cx="227" cy="715" r="32" fill="#687a61"/>
+    <text x="99" y="720" font-size="13" text-anchor="middle">Review</text><text x="352" y="720" font-size="13" text-anchor="middle">Timer</text>
+    <text x="227" y="773" font-size="14" font-weight="bold" text-anchor="middle">Take photo 2</text>
+    <g stroke="#8c9787" fill="none"><path d="M400 285 H460"/><path d="M400 540 H460"/><path d="M400 630 H460"/><path d="M400 715 H460"/></g>
+    <g font-size="16" font-weight="bold"><text x="480" y="280">1. See the selected look live</text><text x="480" y="535">2. Choose a filter for this shot</text><text x="480" y="625">3. Earlier shots keep their look</text><text x="480" y="710">4. Capture when ready</text></g>
+    <g font-size="14"><text x="480" y="306">Rounded preview and warm cream palette.</text><text x="480" y="330">Filter can change during countdown.</text><text x="480" y="561">Thumbnail + name + clear selected state.</text><text x="480" y="651">Tap a completed slot to review or retake.</text><text x="480" y="736">Pause between shots to choose again.</text><text x="480" y="760">One strip can contain three different filters.</text></g>
+    <text x="480" y="160" font-size="20" font-weight="bold">Reference → usable capture flow</text>
+    <text x="480" y="189" font-size="14">Cream • rounded preview • thumbnail rail</text>
+    <text x="480" y="213" font-size="14">Sage shutter • compact controls • shot progress</text>
+  </g>
+</svg>

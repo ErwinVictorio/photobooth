@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { ORIGINAL_FILTER, PHOTO_FILTERS } from '../data/photo-filters'
 
 export function validatePhotoFilter(value) {
@@ -41,4 +42,12 @@ export function drawFilteredCover(ctx, image, x, y, width, height, value) {
     transformPhotoPixels(pixels.data, filter); photo.putImageData(pixels, 0, 0)
     ctx.drawImage(canvas, x, y, width, height)
   } finally { canvas.width = canvas.height = 1 }
+=======
+import { canvasBlob } from './images'
+export async function applyPhotoFilter(canvas, filterId) {
+  if (filterId === 'original') return canvasBlob(canvas)
+  const ctx = canvas.getContext('2d'), image = ctx.getImageData(0, 0, canvas.width, canvas.height), data = image.data
+  for (let i = 0; i < data.length; i += 4) { let [r, g, b] = data.slice(i, i + 3); if (filterId === 'bw') { const v = .299 * r + .587 * g + .114 * b; r = g = b = Math.max(0, Math.min(255, (v - 128) * 1.08 + 128)) }; if (filterId === 'warm') { r = r * 1.08 + 7; g = g * 1.02 + 2; b = b * .9 - 2 }; if (filterId === 'soft') { r = r * .9 + 22; g = g * .9 + 22; b = b * .9 + 22 }; if (filterId === 'vintage') { const v = (r + g + b) / 3; r = v * 1.12 + 18; g = v * .98 + 7; b = v * .8 }; data[i] = Math.min(255, Math.max(0, r)); data[i + 1] = Math.min(255, Math.max(0, g)); data[i + 2] = Math.min(255, Math.max(0, b)) }
+  ctx.putImageData(image, 0, 0); return canvasBlob(canvas)
+>>>>>>> 37eb5e1 (update the UI)
 }
